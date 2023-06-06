@@ -7,6 +7,7 @@ import click
 
 import resource_monitor.version
 from resource_monitor.cli.collect import collect
+from resource_monitor.loggers import setup_logging
 
 
 logger = logging.getLogger(__name__)
@@ -22,14 +23,24 @@ def _show_version(*args):
 
 @click.group()
 @click.option(
+    "--verbose",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help="Enable verbose log messages.",
+)
+@click.option(
     "--version",
     callback=_show_version,
     is_flag=True,
     show_default=True,
     help="Show version and exit",
 )
-def cli(version):  # pylint: disable=unused-argument
+def cli(verbose, version):  # pylint: disable=unused-argument
     """Resource monitor commands"""
+    log_file = "rmon.log"
+    level = logging.DEBUG if verbose else logging.INFO
+    setup_logging(__name__, console_level=level, file_level=level, filename=log_file, mode="w")
 
 
 cli.add_command(collect)

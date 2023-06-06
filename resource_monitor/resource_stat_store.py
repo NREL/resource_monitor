@@ -130,6 +130,7 @@ class ResourceStatStore:
         if rows:
             insert_rows(self._db_file, resource_type.value.lower(), rows)
             self._bufs[resource_type].clear()
+            logger.debug("Flushed resource_type=%s", resource_type.value)
 
     def _initialize_tables(self, stats):
         make_table(

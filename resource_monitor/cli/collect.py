@@ -10,7 +10,6 @@ from pathlib import Path
 import click
 import psutil
 
-from resource_monitor.loggers import setup_logging
 from resource_monitor.resource_monitor import run_monitor_async, run_monitor_sync
 from resource_monitor.models import (
     ComputeNodeResourceStatConfig,
@@ -134,8 +133,6 @@ def collect(
     or sending SIGTERM to the process ID.
     """
     output.mkdir(exist_ok=True)
-    log_file = output / "rmon.log"
-    setup_logging(__name__, filename=log_file, mode="w")
     if interactive and duration is not None:
         logger.warning("Ignoring duration in interactive mode")
 

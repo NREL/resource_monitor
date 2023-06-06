@@ -154,20 +154,21 @@ class ResourceStatAggregator:
                 self._summaries["sum"][resource_type][stat_name] += val
             self._count[resource_type] += 1
 
-        for process_key, stat_dict in cur_stats[ResourceType.PROCESS].items():
-            if process_key in self._process_summaries["maximum"]:
-                for stat_name, val in stat_dict.items():
-                    if val > self._process_summaries["maximum"][process_key][stat_name]:
+        if self._config.process:
+            for process_key, stat_dict in cur_stats[ResourceType.PROCESS].items():
+                if process_key in self._process_summaries["maximum"]:
+                    for stat_name, val in stat_dict.items():
+                        if val > self._process_summaries["maximum"][process_key][stat_name]:
+                            self._process_summaries["maximum"][process_key][stat_name] = val
+                        elif val < self._process_summaries["minimum"][process_key][stat_name]:
+                            self._process_summaries["minimum"][process_key][stat_name] = val
+                        self._process_summaries["sum"][process_key][stat_name] += val
+                    self._process_sample_count[process_key] += 1
+                else:
+                    for stat_name, val in stat_dict.items():
                         self._process_summaries["maximum"][process_key][stat_name] = val
-                    elif val < self._process_summaries["minimum"][process_key][stat_name]:
                         self._process_summaries["minimum"][process_key][stat_name] = val
-                    self._process_summaries["sum"][process_key][stat_name] += val
-                self._process_sample_count[process_key] += 1
-            else:
-                for stat_name, val in stat_dict.items():
-                    self._process_summaries["maximum"][process_key][stat_name] = val
-                    self._process_summaries["minimum"][process_key][stat_name] = val
-                    self._process_summaries["sum"][process_key][stat_name] = val
-                self._process_sample_count[process_key] = 1
+                        self._process_summaries["sum"][process_key][stat_name] = val
+                    self._process_sample_count[process_key] = 1
 
         self._last_stats = cur_stats

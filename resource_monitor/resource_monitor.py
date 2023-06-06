@@ -139,6 +139,7 @@ def run_monitor_sync(
     start_time = time.time()
     try:
         while _g_collect_stats and (duration is None or time.time() - start_time < duration):
+            logger.debug("Collect stats")
             stats = collector.get_stats(config, pids=pids)
             agg.update_stats(stats)
             if store is not None:

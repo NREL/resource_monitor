@@ -144,6 +144,7 @@ class ResourceStatCollector:
                 cur_pids.update(children)
 
         self.clear_stale_processes(cur_pids)
+        logger.debug("Collected process stats for PIDs=%s", list(pids.values()))
         return stats
 
     def get_process_stats(self, pid, config: ComputeNodeResourceStatConfig):

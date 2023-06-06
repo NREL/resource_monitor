@@ -14,21 +14,15 @@ change the resource types and process IDs being monitored.
 ## Usage
 
 ### Installation
-1. Clone the repository.
-```
-$ git clone git@github.nrel.gov:dthom/resource_monitor.git
-# or
-$ git clone https://github.nrel.gov/dthom/resource_monitor.git
-```
 Optionally, install `jq` by following instructions at https://jqlang.github.io/jq/download/.
 
-2. Create a Python virtual environment (e.g., `conda`) with Python 3.10 or later. Refer to
+1. Create a Python virtual environment (e.g., `conda`) with Python 3.10 or later. Refer to
 https://conda.io/projects/conda/en/stable/user-guide/install/ if you are not familiar with virtual
 environments.
 
-3. Install the package.
+2. Install the package.
 ```
-$ pip install -e <path-to-your-local-repository>
+$ pip install git+https://github.nrel.gov/dthom/resource_monitor
 ```
 
 ## CLI tool to monitor resource utilization

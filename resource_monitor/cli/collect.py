@@ -3,6 +3,7 @@
 import logging
 import multiprocessing
 import socket
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -101,7 +102,7 @@ logger = logging.getLogger(__name__)
 @click.option(
     "-i",
     "--interval",
-    default=1,
+    default=3,
     type=int,
     show_default=True,
     help="Interval in seconds on which to collect resource stats.",
@@ -113,6 +114,13 @@ logger = logging.getLogger(__name__)
     show_default=True,
     help="Output directory.",
     callback=lambda *x: Path(x[2]),
+)
+@click.option(
+    "--overwrite",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help="Overwrite sqlite file.",
 )
 def collect(
     process_ids,
@@ -128,11 +136,15 @@ def collect(
     interactive,
     interval,
     output,
+    overwrite,
 ):
     """Collect resource utilization stats. Stop collection by setting duration, pressing Ctrl-c,
     or sending SIGTERM to the process ID.
     """
     output.mkdir(exist_ok=True)
+    db_file = output / f"{name}.sqlite"
+    _check_db_file(db_file, overwrite)
+
     if interactive and duration is not None:
         logger.warning("Ignoring duration in interactive mode")
 
@@ -150,7 +162,6 @@ def collect(
     )
 
     pids = _get_process_names(process_ids)
-    db_file = output / f"{name}.sqlite"
     if db_file.exists():
         db_file.unlink()
     collector_log_file = output / f"{name}_collector.log"
@@ -163,6 +174,161 @@ def collect(
         system_results, process_results = run_monitor_sync(
             config, pids, duration, db_file=db_file, name=name
         )
+
+    _cleanup(results_file, db_file, system_results, process_results, config, plots, output, name)
+
+
+@click.command(context_settings={"ignore_unknown_options": True, "allow_extra_args": True})
+@click.option(
+    "--cpu/--no-cpu",
+    default=False,
+    is_flag=True,
+    show_default=True,
+    help="Enable CPU monitoring for the system",
+)
+@click.option(
+    "--disk/--no-disk",
+    default=False,
+    is_flag=True,
+    show_default=True,
+    help="Enable disk monitoring for the system",
+)
+@click.option(
+    "--memory/--no-memory",
+    default=False,
+    is_flag=True,
+    show_default=True,
+    help="Enable memory monitoring for the system",
+)
+@click.option(
+    "--network/--no-network",
+    default=False,
+    is_flag=True,
+    show_default=True,
+    help="Enable network monitoring for the system",
+)
+@click.option(
+    "--children/--no-children",
+    default=False,
+    is_flag=True,
+    show_default=True,
+    help="Aggregate child process utilization.",
+)
+@click.option(
+    "--recurse-children/--no-recurse-children",
+    default=False,
+    is_flag=True,
+    show_default=True,
+    help="Search for all child processes recursively.",
+)
+@click.option(
+    "-n",
+    "--name",
+    default=socket.gethostname(),
+    type=str,
+    show_default=True,
+    help="Base name for output files.",
+)
+@click.option(
+    "-i",
+    "--interval",
+    default=3,
+    type=int,
+    show_default=True,
+    help="Interval in seconds on which to collect resource stats.",
+)
+@click.option(
+    "-o",
+    "--output",
+    default="stats-output",
+    show_default=True,
+    help="Output directory.",
+    callback=lambda *x: Path(x[2]),
+)
+@click.option(
+    "--overwrite",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help="Overwrite sqlite file.",
+)
+@click.option(
+    "--plots/--no-plots",
+    default=False,
+    is_flag=True,
+    show_default=True,
+    help="Generate plots when collection is complete.",
+)
+@click.argument("process_args", nargs=-1, type=click.UNPROCESSED)
+def monitor_process(
+    cpu,
+    disk,
+    memory,
+    network,
+    children,
+    recurse_children,
+    name,
+    interval,
+    output,
+    overwrite,
+    plots,
+    process_args,
+):
+    """Start a process and monitor its resource utilization stats.
+
+    \b
+    Example:
+    rmon monitor-process --plots python my_script.py ARGS [OPTIONS]
+    """
+    output.mkdir(exist_ok=True)
+    db_file = output / f"{name}.sqlite"
+    _check_db_file(db_file, overwrite)
+    collector_log_file = output / f"{name}_collector.log"
+    results_file = output / f"{name}_results.json"
+
+    logger.info("Running %s", process_args)
+    with subprocess.Popen(process_args) as pipe:
+        config = ComputeNodeResourceStatConfig(
+            cpu=cpu,
+            disk=disk,
+            memory=memory,
+            network=network,
+            process=True,
+            include_child_processes=children,
+            recurse_child_processes=recurse_children,
+            interval=interval,
+            make_plots=plots,
+            monitor_type="periodic",
+        )
+
+        pids = _get_process_names([pipe.pid])
+        parent_monitor_conn, child_conn = multiprocessing.Pipe()
+        args = (child_conn, config, pids, collector_log_file, db_file, name)
+        monitor_proc = multiprocessing.Process(target=run_monitor_async, args=args)
+        monitor_proc.start()
+        pipe.communicate()
+        if pipe.returncode != 0:
+            logger.error("The monitored process failed: %s", pipe.returncode)
+
+    parent_monitor_conn.send(ShutDownCommand(pids=pids))
+    system_results, process_results = parent_monitor_conn.recv()
+    monitor_proc.join()
+    _cleanup(results_file, db_file, system_results, process_results, config, plots, output, name)
+
+
+def _check_db_file(db_file, overwrite):
+    if db_file.exists():
+        if overwrite:
+            db_file.unlink()
+        else:
+            print(
+                f"{db_file} already exists. Choose a different name or set --overwrite.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+
+def _cleanup(results_file, db_file, system_results, process_results, config, plots, output, name):
     with open(results_file, "a", encoding="utf-8") as f:
         f.write(system_results.json())
         f.write("\n")
@@ -180,7 +346,7 @@ def collect(
     )
 
     if plots:
-        plot_files = (f"    {x}" for x in output.glob("*.html"))
+        plot_files = (f"    {x}" for x in output.glob(f"{name}*.html"))
         logger.info("View interactive plots:\n%s", "\n".join(plot_files))
 
 

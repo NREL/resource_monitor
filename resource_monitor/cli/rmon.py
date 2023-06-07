@@ -6,7 +6,7 @@ import sys
 import click
 
 import resource_monitor.version
-from resource_monitor.cli.collect import collect
+from resource_monitor.cli.collect import collect, monitor_process
 from resource_monitor.loggers import setup_logging
 
 
@@ -44,3 +44,4 @@ def cli(verbose, version):  # pylint: disable=unused-argument
 
 
 cli.add_command(collect)
+cli.add_command(monitor_process)

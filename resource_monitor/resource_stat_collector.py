@@ -117,8 +117,11 @@ class ResourceStatCollector:
                 # Initialize CPU utilization tracking per psutil docs.
                 process.cpu_percent(interval=0.25)
                 self._cached_processes[pid] = process
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
-                logger.debug("Tried to construct Process for invalid pid=%s", pid)
+            except psutil.NoSuchProcess:
+                logger.warning("PID=%s does not exist", pid)
+                return None
+            except psutil.AccessDenied:
+                logger.warning("PID=%s: access denied", pid)
                 return None
 
         return process
@@ -170,8 +173,11 @@ class ResourceStatCollector:
                             stats["rss"] += cached_child.memory_info().rss
                             children.append(child.pid)
                 return stats, children
-        except (psutil.NoSuchProcess, psutil.AccessDenied):
-            logger.debug("Tried to get process info for invalid pid=%s", pid)
+        except psutil.NoSuchProcess:
+            logger.warning("PID=%s does not exist", pid)
+            return None, []
+        except psutil.AccessDenied:
+            logger.warning("PID=%s: access denied", pid)
             return None, []
 
     @staticmethod

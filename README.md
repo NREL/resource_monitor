@@ -6,6 +6,7 @@ Here are the ways you can use it:
 
 - Monitor resource utilization for a compute node for a given set of resource types and process
 IDs.
+- Start a process and monitor its resource utilization.
 - Monitor resource utilization for a compute node asynchronously with the ability to dynamically
 change the resource types and process IDs being monitored.
 - Produce JSON reports of aggregated metrics.
@@ -54,6 +55,12 @@ $ jq -s . stats-output/run1_results.json
 ```
 
 Refer to `rmon collect --help` to see all options.
+
+## CLI tool to start a process and monitor its resource utilization
+```
+$ rmon monitor-process -i1 --plots python my_script.py ARGS [OPTIONS]
+```
+Use the stame steps above to view results.
 
 ## CLI tool to monitor resource utilization with dynamic changes
 This command will monitor CPU, memory, and disk utilization every second. It will present user

@@ -40,6 +40,29 @@ def test_resource_monitor_sync(tmp_path):
         assert (tmp_path / filename).exists()
 
 
+def test_resource_monitor_process(tmp_path):
+    """Test the monitor-process command."""
+    cmd = [
+        "rmon",
+        "monitor-process",
+        "-i1",
+        "-o",
+        str(tmp_path),
+        "--plots",
+        "python",
+        "-c",
+        "import time;time.sleep(3)",
+    ]
+    subprocess.run(cmd, check=True)
+    hostname = socket.gethostname()
+    for filename in (
+        f"{hostname}.sqlite",
+        f"{hostname}_results.json",
+        f"{hostname}_process.html",
+    ):
+        assert (tmp_path / filename).exists()
+
+
 def test_resource_monitor_async(tmp_path):
     """Test the monitor in async mode."""
     my_pid = os.getpid()

@@ -58,7 +58,7 @@ setup(
         "polars~=0.17.9",
         "psutil",
         "pyarrow",
-        "pydantic",
+        "pydantic~=2.0.2",
     ],
     extras_require={
         "dev": [

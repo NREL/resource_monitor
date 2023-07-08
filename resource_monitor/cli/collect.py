@@ -330,9 +330,9 @@ def _check_db_file(db_file, overwrite):
 
 def _cleanup(results_file, db_file, system_results, process_results, config, plots, output, name):
     with open(results_file, "a", encoding="utf-8") as f:
-        f.write(system_results.json())
+        f.write(system_results.model_dump_json())
         f.write("\n")
-        f.write(process_results.json())
+        f.write(process_results.model_dump_json())
         f.write("\n")
     logger.info("Recorded summary stats to %s (line-delimited JSON format)", results_file)
     logger.info("Use 'jq' to view consolidated data: 'jq -s . %s'", results_file)
@@ -462,7 +462,7 @@ def _complete_pids(old_pids, new_pids, parent_monitor_conn, results_file):
         )
         results = parent_monitor_conn.recv()
         with open(results_file, "a", encoding="utf-8") as f:
-            f.write(results.json())
+            f.write(results.model_dump_json())
             f.write("\n")
 
 

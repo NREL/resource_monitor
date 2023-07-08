@@ -2,7 +2,7 @@
 
 import enum
 
-from pydantic import BaseModel, Field  # pylint: disable=no-name-in-module
+from pydantic import BaseModel, ConfigDict, Field  # pylint: disable=no-name-in-module
 
 
 class ResourceType(enum.Enum):
@@ -18,17 +18,13 @@ class ResourceType(enum.Enum):
 class ResourceMonitorBaseModel(BaseModel):
     """Base model for all custom types"""
 
-    class Config:
-        """Custom config"""
-
-        anystr_strip_whitespace = True
-        validate_assignment = True
-        validate_all = True
-        extra = "forbid"
-        use_enum_values = False
-        json_encoders = {
-            enum.Enum: lambda x: x.value,
-        }
+    model_config = ConfigDict(
+        str_strip_whitespace=True,
+        validate_assignment=True,
+        validate_default=True,
+        extra="forbid",
+        use_enum_values=False,
+    )
 
 
 class ComputeNodeResourceStatConfig(ResourceMonitorBaseModel):
@@ -112,7 +108,12 @@ class ComputeNodeResourceStatConfig(ResourceMonitorBaseModel):
     @staticmethod
     def list_system_resource_types() -> list[ResourceType]:
         """Return the resource types for the overall system."""
-        return [ResourceType.CPU, ResourceType.DISK, ResourceType.MEMORY, ResourceType.NETWORK]
+        return [
+            ResourceType.CPU,
+            ResourceType.DISK,
+            ResourceType.MEMORY,
+            ResourceType.NETWORK,
+        ]
 
 
 class ResourceStatResults(ResourceMonitorBaseModel):

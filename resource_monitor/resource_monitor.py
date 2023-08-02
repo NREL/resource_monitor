@@ -97,8 +97,8 @@ def run_monitor_async(
             agg.update_stats(stats)
             if store is not None:
                 store.record_stats(stats)
+            last_job_poll_time = cur_time
 
-        last_job_poll_time = cur_time
         time.sleep(cmd_poll_interval)
 
     conn.send(results)

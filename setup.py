@@ -53,12 +53,12 @@ setup(
     test_suite="tests",
     install_requires=[
         "click",
-        "connectorx>=0.3.1",
+        "connectorx==0.3.2a7",
         "plotly",
-        "polars~=0.17.9",
+        "polars~=0.18.15",
         "psutil",
         "pyarrow",
-        "pydantic~=2.0.2",
+        "pydantic~=2.3.0",
     ],
     extras_require={
         "dev": [

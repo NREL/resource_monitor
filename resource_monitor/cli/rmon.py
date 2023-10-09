@@ -5,7 +5,7 @@ import sys
 
 import click
 
-import resource_monitor.version
+import resource_monitor
 from resource_monitor.cli.collect import collect, monitor_process
 from resource_monitor.loggers import setup_logging
 
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 def _show_version(*args):
     version = args[2]
     if version:
-        print(f"Resource Monitor version {resource_monitor.version.__version__}")
+        print(f"Resource Monitor version {resource_monitor.__version__}")
         sys.exit(0)
     return version
 

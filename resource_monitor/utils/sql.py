@@ -53,15 +53,13 @@ def insert_rows(db_file, table, rows):
     rows : list[tuple]
         Each row should be a tuple of values.
     """
+    if not rows:
+        logger.warning("No rows were passed")
+        return
+
     with sqlite3.connect(db_file) as con:
         cur = con.cursor()
-        placeholder = ""
-        num_columns = len(rows[0])
-        for i in range(num_columns):
-            if i == num_columns - 1:
-                placeholder += "?"
-            else:
-                placeholder += "?, "
+        placeholder = ",".join(["?"] * len(rows[0]))
         query = f"INSERT INTO {table} VALUES({placeholder})"
         cur.executemany(query, rows)
         con.commit()

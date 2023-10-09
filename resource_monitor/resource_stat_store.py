@@ -61,7 +61,7 @@ class ResourceStatStore:
             rtype = resource_type.value.lower()
             query = f"select * from {rtype}"
             df = pl.read_database(query, f"sqlite://{self._db_file}").with_columns(
-                pl.col("timestamp").str.strptime(pl.Datetime, fmt="%Y-%m-%d %H:%M:%S%.f")
+                pl.col("timestamp").str.strptime(pl.Datetime, format="%Y-%m-%d %H:%M:%S%.f")
             )
             if len(df) == 0:
                 continue

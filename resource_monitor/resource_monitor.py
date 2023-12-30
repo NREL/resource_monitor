@@ -6,6 +6,7 @@ import socket
 import sys
 import time
 
+from .common import DEFAULT_BUFFERED_WRITE_COUNT
 from .models import ComputeNodeResourceStatConfig
 from .loggers import setup_logging
 from .models import (
@@ -29,6 +30,7 @@ def run_monitor_async(
     log_file,
     db_file=None,
     name=socket.gethostname(),
+    buffered_write_count=DEFAULT_BUFFERED_WRITE_COUNT,
 ):
     """Run a ResourceStatAggregator in a loop. Must be called from a child process.
 
@@ -42,7 +44,8 @@ def run_monitor_async(
     log_file : Path
     db_file : Path | None
         Path to store database if monitor_type = "periodic"
-
+    buffered_write_count : int
+        Number of intervals to cache in memory before persisting to database.
     """
     setup_logging(__name__, filename=log_file, mode="w")
     logger.info("Monitor resource utilization with config=%s", config)
@@ -52,7 +55,9 @@ def run_monitor_async(
     if config.monitor_type == "periodic" and db_file is None:
         raise ValueError("path must be set if monitor_type is periodic")
     store = (
-        ResourceStatStore(config, db_file, stats, name=name)
+        ResourceStatStore(
+            config, db_file, stats, name=name, buffered_write_count=buffered_write_count
+        )
         if config.monitor_type == "periodic"
         else None
     )
@@ -109,7 +114,12 @@ _g_collect_stats = True
 
 
 def run_monitor_sync(
-    config: ComputeNodeResourceStatConfig, pids, duration, db_file=None, name=socket.gethostname()
+    config: ComputeNodeResourceStatConfig,
+    pids,
+    duration,
+    db_file=None,
+    name=socket.gethostname(),
+    buffered_write_count=DEFAULT_BUFFERED_WRITE_COUNT,
 ):
     """Run a ResourceStatAggregator in a loop.
 
@@ -121,7 +131,8 @@ def run_monitor_sync(
     db_file : Path | None
         Path to store database if monitor_type = "periodic"
     duration : int | None
-
+    buffered_write_count : int
+        Number of intervals to cache in memory before persisting to database.
     """
     logger.info("Monitor resource utilization with config=%s duration=%s", config, duration)
     collector = ResourceStatCollector()
@@ -130,7 +141,9 @@ def run_monitor_sync(
     if config.monitor_type == "periodic" and db_file is None:
         raise ValueError("db_file must be set if monitor_type is periodic")
     store = (
-        ResourceStatStore(config, db_file, stats, name=name)
+        ResourceStatStore(
+            config, db_file, stats, name=name, buffered_write_count=buffered_write_count
+        )
         if config.monitor_type == "periodic"
         else None
     )

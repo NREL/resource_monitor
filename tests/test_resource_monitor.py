@@ -28,16 +28,16 @@ def test_resource_monitor_sync(tmp_path):
     )
 
     hostname = socket.gethostname()
+    assert (tmp_path / f"{hostname}.sqlite").exists()
+    assert (tmp_path / f"{hostname}_results.json").exists()
     for filename in (
-        f"{hostname}.sqlite",
-        f"{hostname}_results.json",
         f"{hostname}_cpu.html",
         f"{hostname}_disk.html",
         f"{hostname}_memory.html",
         f"{hostname}_network.html",
         f"{hostname}_process.html",
     ):
-        assert (tmp_path / filename).exists()
+        assert (tmp_path / "html" / filename).exists()
 
 
 def test_resource_monitor_process(tmp_path):
@@ -55,12 +55,9 @@ def test_resource_monitor_process(tmp_path):
     ]
     subprocess.run(cmd, check=True)
     hostname = socket.gethostname()
-    for filename in (
-        f"{hostname}.sqlite",
-        f"{hostname}_results.json",
-        f"{hostname}_process.html",
-    ):
-        assert (tmp_path / filename).exists()
+    assert (tmp_path / f"{hostname}.sqlite").exists()
+    assert (tmp_path / f"{hostname}_results.json").exists()
+    assert (tmp_path / "html" / f"{hostname}_process.html").exists()
 
 
 def test_resource_monitor_async(tmp_path):
@@ -97,13 +94,13 @@ def test_resource_monitor_async(tmp_path):
         assert pipe.returncode == 0
 
         hostname = socket.gethostname()
+        assert (tmp_path / f"{hostname}.sqlite").exists()
+        assert (tmp_path / f"{hostname}_results.json").exists()
         for filename in (
-            f"{hostname}.sqlite",
-            f"{hostname}_results.json",
             f"{hostname}_cpu.html",
             f"{hostname}_disk.html",
             f"{hostname}_memory.html",
             f"{hostname}_network.html",
             f"{hostname}_process.html",
         ):
-            assert (tmp_path / filename).exists()
+            assert (tmp_path / "html" / filename).exists()

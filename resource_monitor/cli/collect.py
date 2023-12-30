@@ -11,6 +11,7 @@ from pathlib import Path
 import click
 import psutil
 
+from resource_monitor.common import DEFAULT_BUFFERED_WRITE_COUNT
 from resource_monitor.resource_monitor import run_monitor_async, run_monitor_sync
 from resource_monitor.models import (
     ComputeNodeResourceStatConfig,
@@ -122,6 +123,13 @@ logger = logging.getLogger(__name__)
     show_default=True,
     help="Overwrite sqlite file.",
 )
+@click.option(
+    "--buffered-write-count",
+    default=DEFAULT_BUFFERED_WRITE_COUNT,
+    show_default=True,
+    type=int,
+    help="Number of intervals to cache in memory before persisting to database.",
+)
 def collect(
     process_ids,
     cpu,
@@ -137,6 +145,7 @@ def collect(
     interval,
     output,
     overwrite,
+    buffered_write_count,
 ):
     """Collect resource utilization stats. Stop collection by setting duration, pressing Ctrl-c,
     or sending SIGTERM to the process ID.
@@ -168,11 +177,16 @@ def collect(
     results_file = output / f"{name}_results.json"
     if interactive:
         system_results, process_results = _run_interactive_mode(
-            config, pids, db_file, collector_log_file, results_file, name
+            config, pids, db_file, collector_log_file, results_file, name, buffered_write_count
         )
     else:
         system_results, process_results = run_monitor_sync(
-            config, pids, duration, db_file=db_file, name=name
+            config,
+            pids,
+            duration,
+            db_file=db_file,
+            name=name,
+            buffered_write_count=buffered_write_count,
         )
 
     _cleanup(results_file, db_file, system_results, process_results, config, plots, output, name)
@@ -259,6 +273,13 @@ def collect(
     show_default=True,
     help="Generate plots when collection is complete.",
 )
+@click.option(
+    "--buffered-write-count",
+    default=DEFAULT_BUFFERED_WRITE_COUNT,
+    show_default=True,
+    type=int,
+    help="Number of intervals to cache in memory before persisting to database.",
+)
 @click.argument("process_args", nargs=-1, type=click.UNPROCESSED)
 def monitor_process(
     cpu,
@@ -273,6 +294,7 @@ def monitor_process(
     overwrite,
     plots,
     process_args,
+    buffered_write_count,
 ):
     """Start a process and monitor its resource utilization stats.
 
@@ -303,7 +325,7 @@ def monitor_process(
 
         pids = _get_process_names([pipe.pid])
         parent_monitor_conn, child_conn = multiprocessing.Pipe()
-        args = (child_conn, config, pids, collector_log_file, db_file, name)
+        args = (child_conn, config, pids, collector_log_file, db_file, name, buffered_write_count)
         monitor_proc = multiprocessing.Process(target=run_monitor_async, args=args)
         monitor_proc.start()
         pipe.communicate()
@@ -357,9 +379,10 @@ def _run_interactive_mode(
     collector_log_file,
     results_file,
     name,
+    buffered_write_count,
 ):
     parent_monitor_conn, child_conn = multiprocessing.Pipe()
-    args = (child_conn, config, pids, collector_log_file, db_file, name)
+    args = (child_conn, config, pids, collector_log_file, db_file, name, buffered_write_count)
     monitor_proc = multiprocessing.Process(target=run_monitor_async, args=args)
     monitor_proc.start()
     time.sleep(2)

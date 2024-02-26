@@ -3,9 +3,9 @@
 import logging
 from pathlib import Path
 
-import plotly.graph_objects as go
+import plotly.graph_objects as go  # type: ignore
 import polars as pl
-from plotly.subplots import make_subplots
+from plotly.subplots import make_subplots  # type: ignore
 
 from .models import ResourceType
 
@@ -13,7 +13,7 @@ from .models import ResourceType
 logger = logging.getLogger(__name__)
 
 
-def plot_to_file(db_file: str | Path, name: str | None = None):
+def plot_to_file(db_file: str | Path, name: str | None = None) -> None:
     """Plots the stats to HTML files in the same directory as the db_file."""
     if not isinstance(db_file, Path):
         db_file = Path(db_file)

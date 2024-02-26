@@ -3,6 +3,7 @@
 import logging
 import multiprocessing
 import time
+from typing import Any, Iterable, Optional
 
 import psutil
 
@@ -36,27 +37,29 @@ class ResourceStatCollector:
         "packets_sent",
     )
 
-    def __init__(self):
-        self._last_disk_check_time = None
-        self._last_net_check_time = None
+    def __init__(self) -> None:
+        self._last_disk_check_time: Optional[float] = None
+        self._last_net_check_time: Optional[float] = None
         self._update_disk_stats(psutil.disk_io_counters())
         self._update_net_stats(psutil.net_io_counters())
-        self._cached_processes = {}  # pid to psutil.Process
+        self._cached_processes: dict[int, psutil.Process] = {}
         self._max_process_cpu_percent = multiprocessing.cpu_count() * 100
 
-    def _update_disk_stats(self, data):
+    def _update_disk_stats(self, data: Any):
         for stat in self.DISK_STATS:
             setattr(self, stat, getattr(data, stat, 0))
         self._last_disk_check_time = time.time()
 
-    def _update_net_stats(self, data):
+    def _update_net_stats(self, data: Any):
         for stat in self.NET_STATS:
             setattr(self, stat, getattr(data, stat, 0))
         self._last_net_check_time = time.time()
 
-    def get_stats(self, config: ComputeNodeResourceStatConfig, pids=None):
+    def get_stats(
+        self, config: ComputeNodeResourceStatConfig, pids: Optional[dict[str, int]] = None
+    ) -> dict[ResourceType, dict[str, Any]]:
         """Return a dict keyed by ResourceType of all enabled stats."""
-        data = {}
+        data: dict[ResourceType, dict[str, Any]] = {}
         if config.cpu:
             data[ResourceType.CPU] = self.get_cpu_stats()
         if config.disk:
@@ -71,16 +74,17 @@ class ResourceStatCollector:
             data[ResourceType.PROCESS] = self.get_processes_stats(pids, config)
         return data
 
-    def get_cpu_stats(self):
+    def get_cpu_stats(self) -> dict[str, Any]:
         """Gets CPU current resource stats information."""
         stats = psutil.cpu_times_percent()._asdict()
         stats["cpu_percent"] = psutil.cpu_percent()
         return stats
 
-    def get_disk_stats(self):
+    def get_disk_stats(self) -> dict[str, Any]:
         """Gets current disk stats."""
+        assert self._last_disk_check_time is not None
         data = psutil.disk_io_counters()
-        stats = {
+        stats: dict[str, Any] = {
             "elapsed_seconds": time.time() - self._last_disk_check_time,
         }
         for stat in self.DISK_STATS:
@@ -92,12 +96,13 @@ class ResourceStatCollector:
         self._update_disk_stats(data)
         return stats
 
-    def get_memory_stats(self):
+    def get_memory_stats(self) -> dict[str, Any]:
         """Gets current memory resource stats."""
         return psutil.virtual_memory()._asdict()
 
-    def get_network_stats(self):
+    def get_network_stats(self) -> dict[str, Any]:
         """Gets current network stats."""
+        assert self._last_net_check_time is not None
         data = psutil.net_io_counters()
         stats = {
             "elapsed_seconds": time.time() - self._last_net_check_time,
@@ -109,7 +114,7 @@ class ResourceStatCollector:
         self._update_net_stats(data)
         return stats
 
-    def _get_process(self, pid):
+    def _get_process(self, pid: int) -> psutil.Process | None:
         process = self._cached_processes.get(pid)
         if process is None:
             try:
@@ -126,18 +131,18 @@ class ResourceStatCollector:
 
         return process
 
-    def clear_cache(self):
+    def clear_cache(self) -> None:
         """Clear all cached data."""
         self._cached_processes.clear()
 
-    def clear_stale_processes(self, cur_pids):
+    def clear_stale_processes(self, cur_pids: Iterable[int]) -> None:
         """Remove cached process objects that are no longer running."""
         for pid in set(self._cached_processes).difference(cur_pids):
             self._cached_processes.pop(pid)
 
-    def get_processes_stats(self, pids, config: ComputeNodeResourceStatConfig):
+    def get_processes_stats(self, pids, config: ComputeNodeResourceStatConfig) -> dict[str, Any]:
         """Return stats for multiple processes."""
-        stats = {}
+        stats: dict[str, Any] = {}
         cur_pids = set()
         for name, pid in pids.items():
             _stats, children = self.get_process_stats(pid, config)
@@ -150,9 +155,11 @@ class ResourceStatCollector:
         logger.debug("Collected process stats for PIDs=%s", list(pids.values()))
         return stats
 
-    def get_process_stats(self, pid, config: ComputeNodeResourceStatConfig):
+    def get_process_stats(
+        self, pid: int, config: ComputeNodeResourceStatConfig
+    ) -> tuple[Optional[dict[str, Any]], list[int]]:
         """Return stats for one process. Returns None if the pid does not exist."""
-        children = []
+        children: list[int] = []
         process = self._get_process(pid)
         if process is None:
             return None, children
@@ -181,5 +188,5 @@ class ResourceStatCollector:
             return None, []
 
     @staticmethod
-    def _mb_per_sec(num_bytes, elapsed_seconds):
+    def _mb_per_sec(num_bytes, elapsed_seconds) -> float:
         return float(num_bytes) / ONE_MB / elapsed_seconds

@@ -5,7 +5,7 @@ import enum
 from pydantic import BaseModel, ConfigDict, Field  # pylint: disable=no-name-in-module
 
 
-class ResourceType(enum.Enum):
+class ResourceType(str, enum.Enum):
     """Types of resources to monitor"""
 
     CPU = "cpu"
@@ -71,7 +71,7 @@ class ComputeNodeResourceStatConfig(ResourceMonitorBaseModel):
     )
 
     @classmethod
-    def all_enabled(cls):
+    def all_enabled(cls) -> "ComputeNodeResourceStatConfig":
         """Return an instance with all stats enabled."""
         return cls(
             cpu=True,
@@ -82,7 +82,7 @@ class ComputeNodeResourceStatConfig(ResourceMonitorBaseModel):
         )
 
     @classmethod
-    def disabled(cls):
+    def disabled(cls) -> "ComputeNodeResourceStatConfig":
         """Return an instance with all stats disabled."""
         return cls(
             cpu=False,
@@ -92,11 +92,11 @@ class ComputeNodeResourceStatConfig(ResourceMonitorBaseModel):
             process=False,
         )
 
-    def is_enabled(self):
+    def is_enabled(self) -> bool:
         """Return True if any stat is enabled."""
         return self.cpu or self.disk or self.memory or self.network or self.process
 
-    def disable_system_stats(self):
+    def disable_system_stats(self) -> None:
         """Disable all system-level stats."""
         for resource_type in self.list_system_resource_types():
             setattr(self, resource_type.value, False)
@@ -150,32 +150,33 @@ class ComputeNodeProcessResourceStatResults(ResourceMonitorBaseModel):
 # in resource monitoring through the run_monitor_async function.
 
 
-class CompleteProcessesCommand(ResourceMonitorBaseModel):
+class CommandBaseModel(ResourceMonitorBaseModel):
+    """Base class for all commands"""
+
+    pids: dict[str, int]
+
+
+class CompleteProcessesCommand(CommandBaseModel):
     """Command to stop monitoring of processes that are completed. The parent process must call
     recv() immediately afterwards to read process stats results.
     """
 
     completed_process_keys: list[str]
-    pids: dict[str, int]
 
 
-class SelectStatsCommand(ResourceMonitorBaseModel):
+class SelectStatsCommand(CommandBaseModel):
     """Command to change the stats to monitor"""
 
     config: ComputeNodeResourceStatConfig
-    pids: dict[str, int]
 
 
-class ShutDownCommand(ResourceMonitorBaseModel):
+class ShutDownCommand(CommandBaseModel):
     """Command to shut down the monitoring process. The parent must call recv() immediately
     afterwards to read system and process results.
     """
 
-    pids: dict[str, int]
 
-
-class UpdatePidsCommand(ResourceMonitorBaseModel):
+class UpdatePidsCommand(CommandBaseModel):
     """Command to update the processes to monitor."""
 
-    pids: dict[str, int]
     config: ComputeNodeResourceStatConfig

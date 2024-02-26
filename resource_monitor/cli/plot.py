@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 @click.command()
 @click.argument("directory", type=click.Path(exists=True), callback=lambda *x: Path(x[2]))
-def plot(directory: Path):
+def plot(directory: Path) -> None:
     """Plot all stats in directory to HTML files."""
     db_files = list(directory.glob("*.sqlite"))
     if not db_files:

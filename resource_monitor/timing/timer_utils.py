@@ -3,12 +3,13 @@
 import functools
 import logging
 import time
+from typing import Any, Callable
 
 
 logger = logging.getLogger(__name__)
 
 
-def timed_info(func):
+def timed_info(func) -> Callable:
     """Decorator to measure and log a function's execution time."""
 
     @functools.wraps(func)
@@ -18,7 +19,7 @@ def timed_info(func):
     return timed
 
 
-def timed_threshold(threshold):
+def timed_threshold(threshold: float) -> Callable:
     """Decorator to log a warning if a function's execution time exceeds a threshold."""
 
     def wrap(func):
@@ -31,7 +32,7 @@ def timed_threshold(threshold):
     return wrap
 
 
-def get_time_duration_string(seconds):
+def get_time_duration_string(seconds: float) -> str:
     """Returns a string with the time converted to reasonable units."""
     # pylint: disable=consider-using-f-string
     if seconds >= 1:
@@ -49,7 +50,7 @@ def get_time_duration_string(seconds):
     return val
 
 
-def _log_timed(func, log_func, *args, **kwargs):
+def _log_timed(func: Callable, log_func: Callable, *args, **kwargs) -> Any:
     start = time.perf_counter()
     try:
         result = func(*args, **kwargs)
@@ -63,7 +64,7 @@ def _log_timed(func, log_func, *args, **kwargs):
         )
 
 
-def _log_if_threshold_exceeded(func, threshold, *args, **kwargs):
+def _log_if_threshold_exceeded(func: Callable, threshold: float, *args, **kwargs) -> Any:
     start = time.perf_counter()
     try:
         result = func(*args, **kwargs)

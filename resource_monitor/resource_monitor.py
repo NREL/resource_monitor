@@ -1,16 +1,23 @@
 """Performs resource utilization monitoring."""
 
 import logging
+import multiprocessing
+import multiprocessing.connection
 import signal
 import socket
 import sys
 import time
+from pathlib import Path
+from typing import Any, Optional
 
 from .common import DEFAULT_BUFFERED_WRITE_COUNT
 from .models import ComputeNodeResourceStatConfig
 from .loggers import setup_logging
 from .models import (
     CompleteProcessesCommand,
+    CommandBaseModel,
+    ComputeNodeResourceStatResults,
+    ComputeNodeProcessResourceStatResults,
     SelectStatsCommand,
     ShutDownCommand,
     UpdatePidsCommand,
@@ -24,19 +31,19 @@ logger = logging.getLogger(__name__)
 
 
 def run_monitor_async(
-    conn,
+    conn: multiprocessing.connection.Connection,
     config: ComputeNodeResourceStatConfig,
-    pids,
-    log_file,
-    db_file=None,
-    name=socket.gethostname(),
-    buffered_write_count=DEFAULT_BUFFERED_WRITE_COUNT,
-):
+    pids: dict[str, int],
+    log_file: Path,
+    db_file: Path,
+    name: str = socket.gethostname(),
+    buffered_write_count: int = DEFAULT_BUFFERED_WRITE_COUNT,
+) -> None:
     """Run a ResourceStatAggregator in a loop. Must be called from a child process.
 
     Parameters
     ----------
-    conn : multiprocessing.Pipe
+    conn : multiprocessing.connection.Connection
         Child side of the pipe
     config : ComputeNodeResourceStatConfig
     pids : dict
@@ -64,36 +71,13 @@ def run_monitor_async(
 
     results = None
     cmd_poll_interval = 1
-    last_job_poll_time = 0
+    last_job_poll_time = 0.0
     while True:
         if conn.poll():
-            cmd = conn.recv()
-            logger.debug("Received command %s", cmd)
-            if isinstance(cmd, CompleteProcessesCommand):
-                result = agg.finalize_process_stats(cmd.completed_process_keys)
-                conn.send(result)
-                pids = cmd.pids
-            elif isinstance(cmd, SelectStatsCommand):
-                config = cmd.config
-                agg.config = config
-                if store is not None:
-                    store.config = config
-                pids = cmd.pids
-            elif isinstance(cmd, UpdatePidsCommand):
-                config = cmd.config
-                agg.config = config
-                pids = cmd.pids
-                if store is not None:
-                    store.config = config
-            elif isinstance(cmd, ShutDownCommand):
-                results = (agg.finalize_system_stats(), agg.finalize_process_stats(cmd.pids))
-                if store is not None:
-                    store.flush()
-                    if config.make_plots:
-                        store.plot_to_file()
+            cmd, results = _process_command(conn, agg, store, config)
+            if isinstance(cmd, ShutDownCommand):
                 break
-            else:
-                raise NotImplementedError(f"Bug: need to implement support for {cmd=}")
+            pids = cmd.pids
 
         cur_time = time.time()
         if cur_time - last_job_poll_time > config.interval:
@@ -110,17 +94,54 @@ def run_monitor_async(
     collector.clear_cache()
 
 
+def _process_command(
+    conn: Any,
+    agg: ResourceStatAggregator,
+    store: Optional[ResourceStatStore],
+    config: ComputeNodeResourceStatConfig,
+) -> tuple[
+    CommandBaseModel,
+    None | tuple[ComputeNodeResourceStatResults, ComputeNodeProcessResourceStatResults],
+]:
+    results = None
+    cmd = conn.recv()
+    logger.debug("Received command %s", cmd)
+    if isinstance(cmd, CompleteProcessesCommand):
+        result = agg.finalize_process_stats(cmd.completed_process_keys)
+        conn.send(result)
+    elif isinstance(cmd, SelectStatsCommand):
+        config = cmd.config
+        agg.config = config
+        if store is not None:
+            store.config = config
+    elif isinstance(cmd, UpdatePidsCommand):
+        config = cmd.config
+        agg.config = config
+        if store is not None:
+            store.config = config
+    elif isinstance(cmd, ShutDownCommand):
+        results = (agg.finalize_system_stats(), agg.finalize_process_stats(cmd.pids))
+        if store is not None:
+            store.flush()
+            if config.make_plots:
+                store.plot_to_file()
+    else:
+        raise NotImplementedError(f"Bug: need to implement support for {cmd=}")
+
+    return cmd, results
+
+
 _g_collect_stats = True
 
 
 def run_monitor_sync(
     config: ComputeNodeResourceStatConfig,
-    pids,
-    duration,
-    db_file=None,
-    name=socket.gethostname(),
-    buffered_write_count=DEFAULT_BUFFERED_WRITE_COUNT,
-):
+    pids: dict[str, int],
+    duration: Optional[int],
+    db_file: Optional[Path] = None,
+    name: str = socket.gethostname(),
+    buffered_write_count: int = DEFAULT_BUFFERED_WRITE_COUNT,
+) -> tuple[ComputeNodeResourceStatResults, ComputeNodeProcessResourceStatResults]:
     """Run a ResourceStatAggregator in a loop.
 
     Parameters
@@ -139,12 +160,13 @@ def run_monitor_sync(
     stats = collector.get_stats(ComputeNodeResourceStatConfig.all_enabled(), pids={})
     agg = ResourceStatAggregator(config, stats)
     if config.monitor_type == "periodic" and db_file is None:
-        raise ValueError("db_file must be set if monitor_type is periodic")
+        msg = "db_file must be set if monitor_type is periodic"
+        raise ValueError(msg)
     store = (
         ResourceStatStore(
             config, db_file, stats, name=name, buffered_write_count=buffered_write_count
         )
-        if config.monitor_type == "periodic"
+        if config.monitor_type == "periodic" and db_file is not None
         else None
     )
 

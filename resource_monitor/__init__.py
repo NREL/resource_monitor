@@ -1,3 +1,5 @@
 """resource_monitor package"""
 
-__version__ = "0.1.7"
+import pkg_resources
+
+__version__ = pkg_resources.get_distribution("resource_monitor").version

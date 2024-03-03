@@ -4,6 +4,7 @@ import logging
 import socket
 import sys
 from collections import defaultdict
+from typing import Any, Iterable
 
 from .models import (
     ComputeNodeResourceStatResults,
@@ -21,11 +22,13 @@ logger = logging.getLogger(__name__)
 class ResourceStatAggregator:
     """Aggregates resource utilization stats in memory."""
 
-    def __init__(self, config: ComputeNodeResourceStatConfig, stats):
+    def __init__(
+        self, config: ComputeNodeResourceStatConfig, stats: dict[ResourceType, dict[str, Any]]
+    ) -> None:
         self._config = config
-        self._count = {}
+        self._count: dict[ResourceType, int] = {}
         self._last_stats = stats
-        self._summaries = {
+        self._summaries: dict[str, dict[ResourceType, dict[str, float]]] = {
             "average": defaultdict(dict),
             "maximum": defaultdict(dict),
             "minimum": defaultdict(dict),
@@ -43,27 +46,18 @@ class ResourceStatAggregator:
                     self._summaries["minimum"][resource_type][stat_name] = sys.maxsize
                     self._summaries["sum"][resource_type][stat_name] = 0.0
 
-        self._process_summaries = {
+        self._process_summaries: dict[str, dict[str, dict[str, float]]] = {
             "average": defaultdict(dict),
             "maximum": defaultdict(dict),
             "minimum": defaultdict(dict),
             "sum": defaultdict(dict),
         }
-        self._process_sample_count = {}
+        self._process_sample_count: dict[str, int] = {}
 
     def finalize_process_stats(
-        self, completed_process_keys
+        self, completed_process_keys: Iterable[str]
     ) -> ComputeNodeProcessResourceStatResults:
-        """Finalize stat summaries for completed processes.
-
-        Parameters
-        ----------
-        completed_process_keys : list[str]
-
-        Returns
-        -------
-        ComputeNodeProcessResourceStatResults
-        """
+        """Finalize stat summaries for completed processes."""
         # Note that short-lived processes may not be present.
         processes = set(completed_process_keys).intersection(self._process_sample_count)
         results = []
@@ -103,8 +97,8 @@ class ResourceStatAggregator:
         ComputeNodeResourceStatResults
         """
         hostname = socket.gethostname()
-        results = []
-        resource_types = []
+        results: list[ResourceStatResults] = []
+        resource_types: list[ResourceType] = []
 
         for rtype, stat_dict in self._summaries["sum"].items():
             if self._count[rtype] > 0:
@@ -124,45 +118,31 @@ class ResourceStatAggregator:
                 ),
             )
 
-        return ComputeNodeResourceStatResults(
-            hostname=hostname,
-            results=results,
-        )
+        return ComputeNodeResourceStatResults(hostname=hostname, results=results)
 
     @property
-    def config(self):
+    def config(self) -> ComputeNodeResourceStatConfig:
         """Return the selected stats config."""
         return self._config
 
     @config.setter
-    def config(self, config: ComputeNodeResourceStatConfig):
+    def config(self, config: ComputeNodeResourceStatConfig) -> None:
         """Set the selected stats config."""
         self._config = config
 
-    def update_stats(self, cur_stats):
+    def update_stats(self, cur_stats: dict[ResourceType, Any]):
         """Update resource stats information for the current interval."""
         enabled_types = (
             x for x in ComputeNodeResourceStatConfig.list_system_resource_types() if x in cur_stats
         )
         for resource_type in enabled_types:
-            stat_dict = cur_stats[resource_type]
-            for stat_name, val in stat_dict.items():
-                if val > self._summaries["maximum"][resource_type][stat_name]:
-                    self._summaries["maximum"][resource_type][stat_name] = val
-                elif val < self._summaries["minimum"][resource_type][stat_name]:
-                    self._summaries["minimum"][resource_type][stat_name] = val
-                self._summaries["sum"][resource_type][stat_name] += val
+            _compute_stats(cur_stats[resource_type], self._summaries, resource_type)
             self._count[resource_type] += 1
 
         if self._config.process:
             for process_key, stat_dict in cur_stats[ResourceType.PROCESS].items():
                 if process_key in self._process_summaries["maximum"]:
-                    for stat_name, val in stat_dict.items():
-                        if val > self._process_summaries["maximum"][process_key][stat_name]:
-                            self._process_summaries["maximum"][process_key][stat_name] = val
-                        elif val < self._process_summaries["minimum"][process_key][stat_name]:
-                            self._process_summaries["minimum"][process_key][stat_name] = val
-                        self._process_summaries["sum"][process_key][stat_name] += val
+                    _compute_stats(stat_dict, self._process_summaries, process_key)
                     self._process_sample_count[process_key] += 1
                 else:
                     for stat_name, val in stat_dict.items():
@@ -172,3 +152,16 @@ class ResourceStatAggregator:
                     self._process_sample_count[process_key] = 1
 
         self._last_stats = cur_stats
+
+
+def _compute_stats(
+    cur_stats: dict[str, float],
+    base_stats: dict[str, dict[Any, dict[str, float]]],
+    stat_key: ResourceType | str,
+) -> None:
+    for stat_name, val in cur_stats.items():
+        if val > base_stats["maximum"][stat_key][stat_name]:
+            base_stats["maximum"][stat_key][stat_name] = val
+        elif val < base_stats["minimum"][stat_key][stat_name]:
+            base_stats["minimum"][stat_key][stat_name] = val
+        base_stats["sum"][stat_key][stat_name] += val

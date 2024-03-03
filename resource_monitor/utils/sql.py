@@ -2,13 +2,17 @@
 
 import logging
 import sqlite3
+from pathlib import Path
+from typing import Any
 
 
 _TYPE_MAP = {int: "INTEGER", float: "REAL", str: "TEXT", bool: "INTEGER"}
 logger = logging.getLogger(__name__)
 
 
-def make_table(db_file, table, row, primary_key=None, types=None):
+def make_table(
+    db_file: Path, table: str, row: dict[str, Any], primary_key=None, types=None
+) -> None:
     """Create a table in the database based on the types in row.
 
     Parameters
@@ -43,7 +47,7 @@ def make_table(db_file, table, row, primary_key=None, types=None):
     logger.debug("Created table=%s in db_file=%s", table, db_file)
 
 
-def insert_rows(db_file, table, rows):
+def insert_rows(db_file: Path, table: str, rows: list[tuple]) -> None:
     """Insert a list of rows into the database table.
 
     Parameters

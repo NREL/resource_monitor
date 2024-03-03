@@ -14,7 +14,7 @@ from resource_monitor.loggers import setup_logging
 logger = logging.getLogger(__name__)
 
 
-def _show_version(*args):
+def _show_version(*args) -> str:
     version = args[2]
     if version:
         print(f"Resource Monitor version {resource_monitor.__version__}")
@@ -37,7 +37,7 @@ def _show_version(*args):
     show_default=True,
     help="Show version and exit",
 )
-def cli(verbose, version):  # pylint: disable=unused-argument
+def cli(verbose: bool, version: str) -> None:  # pylint: disable=unused-argument
     """Resource monitor commands"""
     log_file = "rmon.log"
     level = logging.DEBUG if verbose else logging.INFO

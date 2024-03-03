@@ -4,6 +4,7 @@ import logging
 import socket
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from .common import DEFAULT_BUFFERED_WRITE_COUNT
 from .models import ResourceType, ComputeNodeResourceStatConfig
@@ -21,42 +22,42 @@ class ResourceStatStore:
         self,
         config: ComputeNodeResourceStatConfig,
         db_file: Path,
-        stats,
-        buffered_write_count=DEFAULT_BUFFERED_WRITE_COUNT,
-        name=socket.gethostname(),
-    ):
+        stats: dict[ResourceType, dict[str, Any]],
+        buffered_write_count: int = DEFAULT_BUFFERED_WRITE_COUNT,
+        name: str = socket.gethostname(),
+    ) -> None:
         self._config = config
         self._buffered_write_count = buffered_write_count
-        self._bufs = {}
+        self._bufs: dict[ResourceType, list[tuple]] = {}
         self._db_file = db_file
         self._name = name
         self._initialize_tables(stats)
 
-    def __del__(self):
+    def __del__(self) -> None:
         for resource_type in ResourceType:
             if self._bufs.get(resource_type, []):
                 logger.warning("Destructing with stats still in cache: %s", resource_type.value)
 
     @property
-    def config(self):
+    def config(self) -> ComputeNodeResourceStatConfig:
         """Return the selected config."""
         return self._config
 
     @config.setter
-    def config(self, config: ComputeNodeResourceStatConfig):
+    def config(self, config: ComputeNodeResourceStatConfig) -> None:
         """Set the selected config."""
         self._config = config
 
-    def flush(self):
+    def flush(self) -> None:
         """Flush all cached data to the database."""
         for resource_type in ResourceType:
             self._flush_resource_type(resource_type)
 
-    def plot_to_file(self):
+    def plot_to_file(self) -> None:
         """Plots the stats to HTML files."""
         plot_to_file(self._db_file, name=self._name)
 
-    def record_stats(self, stats):
+    def record_stats(self, stats: dict[ResourceType, dict[str, Any]]) -> None:
         """Records resource stats information for the current interval."""
         timestamp = str(datetime.now())
         for rtype in ComputeNodeResourceStatConfig.list_system_resource_types():
@@ -70,13 +71,13 @@ class ResourceStatStore:
                 row.update(_stats)
                 self._add_stats(ResourceType.PROCESS, tuple(row.values()))
 
-    def _add_stats(self, resource_type, values):
+    def _add_stats(self, resource_type: ResourceType, values: tuple) -> None:
         self._bufs[resource_type].append(values)
         if len(self._bufs[resource_type]) >= self._buffered_write_count:
             self._flush_resource_type(resource_type)
 
     @staticmethod
-    def _fix_column_names(row: dict):
+    def _fix_column_names(row: dict[str, Any]) -> dict[str, Any]:
         converted = {"timestamp": ""}
         illegal_chars = (" ", "/")
         for name, val in row.items():
@@ -86,14 +87,14 @@ class ResourceStatStore:
 
         return converted
 
-    def _flush_resource_type(self, resource_type):
+    def _flush_resource_type(self, resource_type: ResourceType) -> None:
         rows = self._bufs[resource_type]
         if rows:
             insert_rows(self._db_file, resource_type.value.lower(), rows)
             self._bufs[resource_type].clear()
             logger.debug("Flushed resource_type=%s", resource_type.value)
 
-    def _initialize_tables(self, stats):
+    def _initialize_tables(self, stats: dict[ResourceType, dict[str, Any]]) -> None:
         make_table(
             self._db_file,
             ResourceType.CPU.value.lower(),

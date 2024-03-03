@@ -2,11 +2,13 @@
 
 import logging
 import multiprocessing
+import multiprocessing.connection
 import socket
 import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import Iterable
 
 import click
 import psutil
@@ -16,6 +18,8 @@ from resource_monitor.resource_monitor import run_monitor_async, run_monitor_syn
 from resource_monitor.models import (
     ComputeNodeResourceStatConfig,
     CompleteProcessesCommand,
+    ComputeNodeResourceStatResults,
+    ComputeNodeProcessResourceStatResults,
     SelectStatsCommand,
     ShutDownCommand,
     UpdatePidsCommand,
@@ -131,22 +135,22 @@ logger = logging.getLogger(__name__)
     help="Number of intervals to cache in memory before persisting to database.",
 )
 def collect(
-    process_ids,
-    cpu,
-    disk,
-    memory,
-    network,
-    children,
-    recurse_children,
-    name,
-    plots,
-    duration,
-    interactive,
-    interval,
-    output,
-    overwrite,
-    buffered_write_count,
-):
+    process_ids: tuple[int],
+    cpu: bool,
+    disk: bool,
+    memory: bool,
+    network: bool,
+    children: bool,
+    recurse_children: bool,
+    name: str,
+    plots: bool,
+    duration: int,
+    interactive: bool,
+    interval: int,
+    output: Path,
+    overwrite: bool,
+    buffered_write_count: int,
+) -> None:
     """Collect resource utilization stats. Stop collection by setting duration, pressing Ctrl-c,
     or sending SIGTERM to the process ID.
     """
@@ -282,20 +286,20 @@ def collect(
 )
 @click.argument("process_args", nargs=-1, type=click.UNPROCESSED)
 def monitor_process(
-    cpu,
-    disk,
-    memory,
-    network,
-    children,
-    recurse_children,
-    name,
-    interval,
-    output,
-    overwrite,
-    plots,
-    process_args,
-    buffered_write_count,
-):
+    cpu: bool,
+    disk: bool,
+    memory: bool,
+    network: bool,
+    children: bool,
+    recurse_children: bool,
+    name: str,
+    interval: int,
+    output: Path,
+    overwrite: bool,
+    plots: bool,
+    process_args: list[str],
+    buffered_write_count: int,
+) -> None:
     """Start a process and monitor its resource utilization stats.
 
     \b
@@ -338,7 +342,7 @@ def monitor_process(
     _cleanup(results_file, db_file, system_results, process_results, config, plots, output, name)
 
 
-def _check_db_file(db_file, overwrite):
+def _check_db_file(db_file: Path, overwrite: bool) -> None:
     if db_file.exists():
         if overwrite:
             db_file.unlink()
@@ -350,7 +354,16 @@ def _check_db_file(db_file, overwrite):
             sys.exit(1)
 
 
-def _cleanup(results_file, db_file, system_results, process_results, config, plots, output, name):
+def _cleanup(
+    results_file: Path,
+    db_file: Path,
+    system_results: ComputeNodeResourceStatResults,
+    process_results: ComputeNodeProcessResourceStatResults,
+    config: ComputeNodeResourceStatConfig,
+    plots: bool,
+    output: Path,
+    name: str,
+) -> None:
     with open(results_file, "a", encoding="utf-8") as f:
         f.write(system_results.model_dump_json())
         f.write("\n")
@@ -375,12 +388,12 @@ def _cleanup(results_file, db_file, system_results, process_results, config, plo
 def _run_interactive_mode(
     config: ComputeNodeResourceStatConfig,
     pids: dict,
-    db_file,
-    collector_log_file,
-    results_file,
-    name,
-    buffered_write_count,
-):
+    db_file: Path,
+    collector_log_file: Path,
+    results_file: Path,
+    name: str,
+    buffered_write_count: int,
+) -> tuple[ComputeNodeResourceStatResults, ComputeNodeProcessResourceStatResults]:
     parent_monitor_conn, child_conn = multiprocessing.Pipe()
     args = (child_conn, config, pids, collector_log_file, db_file, name, buffered_write_count)
     monitor_proc = multiprocessing.Process(target=run_monitor_async, args=args)
@@ -418,7 +431,11 @@ Enter one of the following letters to change operation:
     return system_results, process_results
 
 
-def _get_user_resource_types(config: ComputeNodeResourceStatConfig, pids, parent_monitor_conn):
+def _get_user_resource_types(
+    config: ComputeNodeResourceStatConfig,
+    pids,
+    parent_monitor_conn: multiprocessing.connection.Connection,
+) -> ComputeNodeResourceStatConfig:
     resource_types = config.list_enabled_system_resource_types()
     types_str = " ".join((x.value for x in resource_types))
     example = "cpu disk memory network"
@@ -448,7 +465,10 @@ def _get_user_resource_types(config: ComputeNodeResourceStatConfig, pids, parent
 
 
 def _get_user_process_id_input(
-    config: ComputeNodeResourceStatConfig, cur_pids, parent_monitor_conn, results_file
+    config: ComputeNodeResourceStatConfig,
+    cur_pids: dict[str, int],
+    parent_monitor_conn: multiprocessing.connection.Connection,
+    results_file: Path,
 ):
     pids_str = "none" if not cur_pids else " ".join((str(x) for x in cur_pids.values()))
     print(f"Current process IDs: {pids_str}", file=sys.stderr)
@@ -474,7 +494,12 @@ def _get_user_process_id_input(
     return config, new_pids
 
 
-def _complete_pids(old_pids, new_pids, parent_monitor_conn, results_file):
+def _complete_pids(
+    old_pids: dict[str, int],
+    new_pids: dict[str, int],
+    parent_monitor_conn: multiprocessing.connection.Connection,
+    results_file: Path,
+) -> None:
     completed_pids = set(old_pids) - set(new_pids)
     if completed_pids:
         parent_monitor_conn.send(
@@ -489,8 +514,8 @@ def _complete_pids(old_pids, new_pids, parent_monitor_conn, results_file):
             f.write("\n")
 
 
-def _get_process_names(pids):
-    names = {}
+def _get_process_names(pids: Iterable[int]) -> dict[str, int]:
+    names: dict[str, int] = {}
     for pid in pids:
         process_name = _get_process_name(pid)
         if process_name in names:
@@ -500,7 +525,7 @@ def _get_process_names(pids):
     return names
 
 
-def _get_process_name(pid):
+def _get_process_name(pid: int) -> str:
     """Return a mapping of name to pid. The name should be suitable for plots."""
     # Including the entire command line is often way too long.
     # name() is often better than the first arg (python instead of full path to python)

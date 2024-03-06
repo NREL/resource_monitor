@@ -5,6 +5,9 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
+import polars as pl
+from polars import DataFrame
+
 
 _TYPE_MAP = {int: "INTEGER", float: "REAL", str: "TEXT", bool: "INTEGER"}
 logger = logging.getLogger(__name__)
@@ -68,3 +71,31 @@ def insert_rows(db_file: Path, table: str, rows: list[tuple]) -> None:
         cur.executemany(query, rows)
         con.commit()
         logger.debug("Inserted rows into table=%s in db_file=%s", table, db_file)
+
+
+def read_table(db_file: Path, table: str) -> tuple[list[tuple], list[str]]:
+    """Read all rows from the table.
+    Parameters
+    ----------
+    db_file : Path
+    table : str
+    rows : list[tuple]
+        Each row should be a tuple of values.
+
+    Returns
+    -------
+    tuple
+        list of rows, list of columns
+    """
+    with sqlite3.connect(db_file) as con:
+        cur = con.cursor()
+        query = f"SELECT * FROM {table}"
+        rows = cur.execute(query).fetchall()
+        columns = [x[0] for x in cur.description]
+        return rows, columns
+
+
+def read_dataframe_from_table(db_file: Path, table: str) -> DataFrame:
+    """Read the table into a DataFrame."""
+    rows, columns = read_table(db_file, table)
+    return pl.DataFrame(rows, columns)

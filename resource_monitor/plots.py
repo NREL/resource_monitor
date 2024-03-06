@@ -7,7 +7,8 @@ import plotly.graph_objects as go  # type: ignore
 import polars as pl
 from plotly.subplots import make_subplots  # type: ignore
 
-from .models import ResourceType
+from resource_monitor.models import ResourceType
+from resource_monitor.utils.sql import read_dataframe_from_table
 
 
 logger = logging.getLogger(__name__)
@@ -21,12 +22,19 @@ def plot_to_file(db_file: str | Path, name: str | None = None) -> None:
     name = name or base_name
     for resource_type in ResourceType:
         rtype = resource_type.value.lower()
-        query = f"select * from {rtype}"
-        df = pl.read_database(query, f"sqlite://{db_file}").with_columns(
-            pl.col("timestamp").str.strptime(pl.Datetime, format="%Y-%m-%d %H:%M:%S%.f")
-        )
+        df = read_dataframe_from_table(db_file, rtype)
         if len(df) == 0:
             continue
+        df = df.with_columns(
+            pl.col("timestamp").str.strptime(pl.Datetime, format="%Y-%m-%d %H:%M:%S%.f")
+        )
+        # This is a workaround for the fact that connectorx does not
+        # - Provide binaries that work on Eagle's operating system.
+        # - Provide binaries that work with Python 3.12 (as of 3/6/2024).
+        # query = f"select * from {rtype}"
+        # df = pl.read_database_uri(query, f"sqlite://{db_file}").with_columns(
+        # pl.col("timestamp").str.strptime(pl.Datetime, format="%Y-%m-%d %H:%M:%S%.f")
+        # )
         if resource_type == ResourceType.PROCESS:
             fig = make_subplots(specs=[[{"secondary_y": True}]])
             for key, _df in df.partition_by(by="id", maintain_order=True, as_dict=True).items():

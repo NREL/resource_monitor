@@ -19,7 +19,6 @@ classifiers=[
 ]
 dependencies = [
     "click",
-    "connectorx~=0.3.2",
     "plotly",
     "polars~=0.20.13",
     "psutil",

@@ -21,7 +21,7 @@ dependencies = [
     "click",
     "connectorx~=0.3.2",
     "plotly",
-    "polars~=0.19.7",
+    "polars~=0.20.13",
     "psutil",
     "pyarrow",
     "pydantic >= 2.1, < 3",

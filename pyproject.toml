@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "resource_monitor"
-version = "0.1.7"
+version = "0.1.8"
 requires-python = ">=3.10"
 license = {file = "LICENSE"}
 readme = "README.md"

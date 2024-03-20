@@ -37,7 +37,7 @@ def plot_to_file(db_file: str | Path, name: str | None = None) -> None:
         # )
         if resource_type == ResourceType.PROCESS:
             fig = make_subplots(specs=[[{"secondary_y": True}]])
-            for key, _df in df.partition_by(by="id", maintain_order=True, as_dict=True).items():
+            for key, _df in df.partition_by(by=["id"], maintain_order=True, as_dict=True).items():
                 fig.add_trace(
                     go.Scatter(
                         x=_df["timestamp"],

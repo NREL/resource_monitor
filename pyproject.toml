@@ -20,9 +20,7 @@ classifiers=[
 dependencies = [
     "click",
     "plotly",
-    "polars~=0.20.13",
     "psutil",
-    "pyarrow",
     "pydantic >= 2.1, < 3",
 ]
 

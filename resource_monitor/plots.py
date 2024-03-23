@@ -4,11 +4,10 @@ import logging
 from pathlib import Path
 
 import plotly.graph_objects as go  # type: ignore
-import polars as pl
 from plotly.subplots import make_subplots  # type: ignore
 
 from resource_monitor.models import ResourceType
-from resource_monitor.utils.sql import read_dataframe_from_table
+from resource_monitor.utils.sql import read_table_as_dict, read_process_tables
 
 
 logger = logging.getLogger(__name__)
@@ -21,46 +20,47 @@ def plot_to_file(db_file: str | Path, name: str | None = None) -> None:
     base_name = db_file.stem
     name = name or base_name
     for resource_type in ResourceType:
-        rtype = resource_type.value.lower()
-        df = read_dataframe_from_table(db_file, rtype)
-        if len(df) == 0:
-            continue
-        df = df.with_columns(
-            pl.col("timestamp").str.strptime(pl.Datetime, format="%Y-%m-%d %H:%M:%S%.f")
-        )
-        # This is a workaround for the fact that connectorx does not
-        # - Provide binaries that work on Eagle's operating system.
-        # - Provide binaries that work with Python 3.12 (as of 3/6/2024).
-        # query = f"select * from {rtype}"
-        # df = pl.read_database_uri(query, f"sqlite://{db_file}").with_columns(
-        # pl.col("timestamp").str.strptime(pl.Datetime, format="%Y-%m-%d %H:%M:%S%.f")
-        # )
+        table_name = resource_type.value.lower()
         if resource_type == ResourceType.PROCESS:
-            fig = make_subplots(specs=[[{"secondary_y": True}]])
-            for key, _df in df.partition_by(by=["id"], maintain_order=True, as_dict=True).items():
-                fig.add_trace(
-                    go.Scatter(
-                        x=_df["timestamp"],
-                        y=_df["cpu_percent"],
-                        name=f"{key} cpu_percent",
-                    )
-                )
-                fig.add_trace(
-                    go.Scatter(x=_df["timestamp"], y=_df["rss"], name=f"{key} rss"),
-                    secondary_y=True,
-                )
-            fig.update_yaxes(title_text="CPU Percent", secondary_y=False)
-            fig.update_yaxes(title_text="RSS (Memory)", secondary_y=True)
+            fig = _make_process_figure(db_file, table_name)
         else:
-            df = df.select([pl.col(pl.Float64), pl.col(pl.Int64), pl.col("timestamp")])
-            fig = go.Figure()
-            for column in set(df.columns) - {"timestamp"}:
-                fig.add_trace(go.Scatter(x=df["timestamp"], y=df[column], name=column))
+            fig = _make_system_stat_figure(db_file, table_name)
 
-        fig.update_xaxes(title_text="Time")
-        fig.update_layout(title=f"{name} {resource_type.value} Utilization")
-        output_dir = db_file.parent / "html"
-        output_dir.mkdir(exist_ok=True)
-        filename = output_dir / f"{base_name}_{rtype}.html"
-        fig.write_html(str(filename))
-        logger.info("Generated plot in %s", filename)
+        if fig is not None:
+            fig.update_xaxes(title_text="Time")
+            fig.update_layout(title=f"{name} {resource_type.value} Utilization")
+            output_dir = db_file.parent / "html"
+            output_dir.mkdir(exist_ok=True)
+            filename = output_dir / f"{base_name}_{table_name}.html"
+            fig.write_html(str(filename))
+            logger.info("Generated plot in %s", filename)
+
+
+def _make_process_figure(db_file: Path, table_name: str) -> go.Figure:
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
+    for key, table in read_process_tables(db_file, table_name).items():
+        fig.add_trace(
+            go.Scatter(
+                x=table["timestamp"],
+                y=table["cpu_percent"],
+                name=f"{key} cpu_percent",
+            )
+        )
+        fig.add_trace(
+            go.Scatter(x=table["timestamp"], y=table["rss"], name=f"{key} rss"),
+            secondary_y=True,
+        )
+    fig.update_yaxes(title_text="CPU Percent", secondary_y=False)
+    fig.update_yaxes(title_text="RSS (Memory)", secondary_y=True)
+    return fig
+
+
+def _make_system_stat_figure(db_file: Path, table_name: str) -> go.Figure | None:
+    table = read_table_as_dict(db_file, table_name, timestamp_column="timestamp")
+    if not next(iter(table.values())):
+        return None
+
+    fig = go.Figure()
+    for column in set(table) - {"timestamp"}:
+        fig.add_trace(go.Scatter(x=table["timestamp"], y=table[column], name=column))
+    return fig

@@ -153,6 +153,16 @@ def collect(
 ) -> None:
     """Collect resource utilization stats. Stop collection by setting duration, pressing Ctrl-c,
     or sending SIGTERM to the process ID.
+
+    Examples:
+
+    \b
+    # Use default resource types, name, and output directory; run until user presses Ctrl-c.
+    $ rmon collect --interval=1 --plots
+
+    \b
+    # Use custom resource types, name, and output directory; run for 10 minutes.
+    $ rmon collect --disk --cpu --memory --network --interval=1 --plots --name=stats1 --output=./stats --duration=600
     """
     output.mkdir(exist_ok=True)
     db_file = output / f"{name}.sqlite"

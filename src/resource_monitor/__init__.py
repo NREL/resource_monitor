@@ -1,5 +1,5 @@
 """resource_monitor package"""
 
-import pkg_resources
+import importlib.metadata as metadata
 
-__version__ = pkg_resources.get_distribution("resource_monitor").version
+__version__ = metadata.metadata("resource_monitor")["Version"]

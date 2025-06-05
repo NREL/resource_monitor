@@ -100,3 +100,7 @@ The following will occur when Slurm runs your job:
 - Run your job.
 - Create the file `shutdown`. That will trigger `collect_stats.sh` to stop.
 - Gracefully shut down ``rmon`` and generate plots.
+
+
+## Software Record
+This package is developed under NREL Software Record SWR-24-128.

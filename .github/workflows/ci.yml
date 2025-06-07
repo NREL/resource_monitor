@@ -30,9 +30,9 @@ jobs:
         python -m pip install ".[dev]"
     - name: Run pytest with coverage
       run: |
-        pytest -v --cov --cov-report=xml
+        pytest -v --cov --cov-branch --cov-report=xml tests
     - name: codecov
-      uses: codecov/codecov-action@v4.2.0
+      uses: codecov/codecov-action@v5
       if: ${{ matrix.os == env.DEFAULT_OS && matrix.python-version == env.DEFAULT_PYTHON  }}
       with:
         token: ${{ secrets.CODECOV_TOKEN }}

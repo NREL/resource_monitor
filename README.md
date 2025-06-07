@@ -1,3 +1,5 @@
+[![codecov](https://codecov.io/gh/NREL/resource_monitor/graph/badge.svg?token=EVEJDPS3LI)](https://codecov.io/gh/NREL/resource_monitor)
+
 # Resource Monitor
 This package contains utilities to monitor system resource utilization (CPU, memory, disk,
 network).

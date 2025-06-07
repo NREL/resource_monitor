@@ -1,16 +1,13 @@
 """Makes plots."""
 
-import logging
 from pathlib import Path
 
 import plotly.graph_objects as go  # type: ignore
+from loguru import logger
 from plotly.subplots import make_subplots  # type: ignore
 
-from resource_monitor.models import ResourceType
-from resource_monitor.utils.sql import read_table_as_dict, read_process_tables
-
-
-logger = logging.getLogger(__name__)
+from rmon.models import ResourceType
+from rmon.utils.sql import read_table_as_dict, read_process_tables
 
 
 def plot_to_file(db_file: str | Path, name: str | None = None) -> None:
@@ -33,7 +30,7 @@ def plot_to_file(db_file: str | Path, name: str | None = None) -> None:
             output_dir.mkdir(exist_ok=True)
             filename = output_dir / f"{base_name}_{table_name}.html"
             fig.write_html(str(filename))
-            logger.info("Generated plot in %s", filename)
+            logger.info("Generated plot in {}", filename)
 
 
 def _make_process_figure(db_file: Path, table_name: str) -> go.Figure:

@@ -79,6 +79,7 @@ def test_resource_monitor_async(tmp_path):
     ]
     with subprocess.Popen(cmd, stdin=subprocess.PIPE, text=True) as pipe:
         time.sleep(2)
+        assert pipe.stdin is not None
         pipe.stdin.write("p\n")
         # Disable process ponitoring.
         pipe.stdin.write("\n")

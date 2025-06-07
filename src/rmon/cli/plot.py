@@ -1,15 +1,12 @@
 """CLI utility to plot already-collected resource statistics"""
 
-import logging
 import sys
 from pathlib import Path
 
-import click
+import rich_click as click
+from loguru import logger
 
-from resource_monitor.plots import plot_to_file
-
-
-logger = logging.getLogger(__name__)
+from rmon.plots import plot_to_file
 
 
 @click.command()
@@ -18,7 +15,7 @@ def plot(directory: Path) -> None:
     """Plot all stats in directory to HTML files."""
     db_files = list(directory.glob("*.sqlite"))
     if not db_files:
-        logger.error("No database files exist in %s", directory)
+        logger.error("No database files exist in {}", directory)
         sys.exit(1)
 
     for db_file in db_files:

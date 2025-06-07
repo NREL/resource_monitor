@@ -1,12 +1,10 @@
 """Utility functions for timing measurements."""
 
 import functools
-import logging
 import time
 from typing import Any, Callable
 
-
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 
 def timed_info(func) -> Callable:
@@ -58,7 +56,7 @@ def _log_timed(func: Callable, log_func: Callable, *args, **kwargs) -> Any:
     finally:
         total = time.perf_counter() - start
         log_func(
-            "execution-time=%s func=%s",
+            "execution-time={} func={}",
             get_time_duration_string(total),
             func.__qualname__,
         )
@@ -73,7 +71,7 @@ def _log_if_threshold_exceeded(func: Callable, threshold: float, *args, **kwargs
         total = time.perf_counter() - start
         if total > threshold:
             logger.warning(
-                "func=%s exceeded threshold execution-time=%s threshold=%s",
+                "func={} exceeded threshold execution-time={} threshold={}",
                 func.__qualname__,
                 total,
                 threshold,

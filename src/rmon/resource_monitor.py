@@ -1,6 +1,5 @@
 """Performs resource utilization monitoring."""
 
-import logging
 import multiprocessing
 import multiprocessing.connection
 import signal
@@ -10,6 +9,7 @@ import time
 from pathlib import Path
 from typing import Any, Optional
 
+from loguru import logger
 from .common import DEFAULT_BUFFERED_WRITE_COUNT
 from .models import ComputeNodeResourceStatConfig
 from .loggers import setup_logging
@@ -27,15 +27,12 @@ from .resource_stat_aggregator import ResourceStatAggregator
 from .resource_stat_store import ResourceStatStore
 
 
-logger = logging.getLogger(__name__)
-
-
 def run_monitor_async(
     conn: multiprocessing.connection.Connection,
     config: ComputeNodeResourceStatConfig,
     pids: dict[str, int],
     log_file: Path,
-    db_file: Path,
+    db_file: Path | None,
     name: str = socket.gethostname(),
     buffered_write_count: int = DEFAULT_BUFFERED_WRITE_COUNT,
 ) -> None:
@@ -54,18 +51,19 @@ def run_monitor_async(
     buffered_write_count : int
         Number of intervals to cache in memory before persisting to database.
     """
-    setup_logging(__name__, filename=log_file, mode="w")
-    logger.info("Monitor resource utilization with config=%s", config)
+    setup_logging(filename=log_file, mode="w")
+    logger.info("Monitor resource utilization with config={}", config)
     collector = ResourceStatCollector()
     stats = collector.get_stats(ComputeNodeResourceStatConfig.all_enabled(), pids={})
     agg = ResourceStatAggregator(config, stats)
     if config.monitor_type == "periodic" and db_file is None:
-        raise ValueError("path must be set if monitor_type is periodic")
+        msg = "path must be set if monitor_type is periodic"
+        raise ValueError(msg)
     store = (
         ResourceStatStore(
             config, db_file, stats, name=name, buffered_write_count=buffered_write_count
         )
-        if config.monitor_type == "periodic"
+        if config.monitor_type == "periodic" and db_file is not None
         else None
     )
 
@@ -105,7 +103,7 @@ def _process_command(
 ]:
     results = None
     cmd = conn.recv()
-    logger.debug("Received command %s", cmd)
+    logger.debug("Received command {}", cmd)
     if isinstance(cmd, CompleteProcessesCommand):
         result = agg.finalize_process_stats(cmd.completed_process_keys)
         conn.send(result)
@@ -126,7 +124,8 @@ def _process_command(
             if config.make_plots:
                 store.plot_to_file()
     else:
-        raise NotImplementedError(f"Bug: need to implement support for {cmd=}")
+        msg = f"Bug: need to implement support for {cmd=}"
+        raise NotImplementedError(msg)
 
     return cmd, results
 
@@ -155,7 +154,7 @@ def run_monitor_sync(
     buffered_write_count : int
         Number of intervals to cache in memory before persisting to database.
     """
-    logger.info("Monitor resource utilization with config=%s duration=%s", config, duration)
+    logger.info("Monitor resource utilization with config={} duration={}", config, duration)
     collector = ResourceStatCollector()
     stats = collector.get_stats(ComputeNodeResourceStatConfig.all_enabled(), pids={})
     agg = ResourceStatAggregator(config, stats)

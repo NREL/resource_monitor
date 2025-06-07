@@ -1,18 +1,15 @@
 """Stores time-series resource utilization stats."""
 
-import logging
 import socket
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from loguru import logger
 from .common import DEFAULT_BUFFERED_WRITE_COUNT
 from .models import ResourceType, ComputeNodeResourceStatConfig
 from .plots import plot_to_file
 from .utils.sql import insert_rows, make_table
-
-
-logger = logging.getLogger(__name__)
 
 
 class ResourceStatStore:
@@ -36,7 +33,7 @@ class ResourceStatStore:
     def __del__(self) -> None:
         for resource_type in ResourceType:
             if self._bufs.get(resource_type, []):
-                logger.warning("Destructing with stats still in cache: %s", resource_type.value)
+                logger.warning("Destructing with stats still in cache: {}", resource_type.value)
 
     @property
     def config(self) -> ComputeNodeResourceStatConfig:
@@ -92,7 +89,7 @@ class ResourceStatStore:
         if rows:
             insert_rows(self._db_file, resource_type.value.lower(), rows)
             self._bufs[resource_type].clear()
-            logger.debug("Flushed resource_type=%s", resource_type.value)
+            logger.debug("Flushed resource_type={}", resource_type.value)
 
     def _initialize_tables(self, stats: dict[ResourceType, dict[str, Any]]) -> None:
         make_table(

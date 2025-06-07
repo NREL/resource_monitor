@@ -1,16 +1,14 @@
 """Monitors resource utilization statistics"""
 
-import logging
 import multiprocessing
 import time
 from typing import Any, Iterable, Optional
 
 import psutil
+from loguru import logger
 
 from .models import ResourceType, ComputeNodeResourceStatConfig
 
-
-logger = logging.getLogger(__name__)
 
 ONE_MB = 1024 * 1024
 
@@ -70,7 +68,8 @@ class ResourceStatCollector:
             data[ResourceType.NETWORK] = self.get_network_stats()
         if config.process:
             if pids is None:
-                raise ValueError("pids cannot be None if process stats are enabled")
+                msg = "pids cannot be None if process stats are enabled"
+                raise ValueError(msg)
             data[ResourceType.PROCESS] = self.get_processes_stats(pids, config)
         return data
 
@@ -123,10 +122,10 @@ class ResourceStatCollector:
                 process.cpu_percent(interval=0.25)
                 self._cached_processes[pid] = process
             except psutil.NoSuchProcess:
-                logger.warning("PID=%s does not exist", pid)
+                logger.warning("PID={} does not exist", pid)
                 return None
             except psutil.AccessDenied:
-                logger.warning("PID=%s: access denied", pid)
+                logger.warning("PID={}: access denied", pid)
                 return None
 
         return process
@@ -152,7 +151,7 @@ class ResourceStatCollector:
                 cur_pids.update(children)
 
         self.clear_stale_processes(cur_pids)
-        logger.debug("Collected process stats for PIDs=%s", list(pids.values()))
+        logger.debug("Collected process stats for PIDs={}", list(pids.values()))
         return stats
 
     def get_process_stats(
@@ -168,7 +167,7 @@ class ResourceStatCollector:
                 cpu_percent = process.cpu_percent()
                 rss = process.memory_info().rss
                 if cpu_percent > self._max_process_cpu_percent:
-                    logger.warning("Invalid process CPU measurement: %s", cpu_percent)
+                    logger.warning("Invalid process CPU measurement: {}", cpu_percent)
                     cpu_percent = self._max_process_cpu_percent
 
                 stats = {"cpu_percent": cpu_percent, "rss": rss}
@@ -181,10 +180,10 @@ class ResourceStatCollector:
                             children.append(child.pid)
                 return stats, children
         except psutil.NoSuchProcess:
-            logger.warning("PID=%s does not exist", pid)
+            logger.warning("PID={} does not exist", pid)
             return None, []
         except psutil.AccessDenied:
-            logger.warning("PID=%s: access denied", pid)
+            logger.warning("PID={}: access denied", pid)
             return None, []
 
     @staticmethod

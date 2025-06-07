@@ -14,13 +14,17 @@ change the resource types and process IDs being monitored.
 
 ## Installation
 
-1. Create a Python virtual environment (e.g., `conda`) with Python 3.10 or later. Refer to
-https://conda.io/projects/conda/en/stable/user-guide/install/ if you are not familiar with virtual
-environments.
+1. Create a Python virtual environment and activate it. Adjust as necessary if using Windows.
+```
+$ python -m venv ~/python-envs/rmon
+```
+```
+$ source ~/python-envs/rmon/bin/activate
+```
 
 2. Install the package.
 ```
-$ pip install git+https://github.nrel.gov/dthom/resource_monitor
+$ pip install rmon
 ```
 
 3. Optionally, install `jq` by following instructions at https://jqlang.github.io/jq/download/.
@@ -77,13 +81,13 @@ processes being monitored. Refer to `resource_monitor/cli/collect.py` for exampl
 
 ### Collect stats for all compute nodes in an HPC job
 The
-[directory](https://github.nrel.gov/dthom/resource_monitor/tree/main/scripts/slurm) contains some
+[directory](https://github.com/NREL/resource_monitor/tree/main/scripts/slurm) contains some
 example scripts that can be deployed in a Slurm job to collect stats for your compute nodes.
 
 1. Copy
-[collect_stats.sh](https://github.nrel.gov/dthom/resource_monitor/tree/main/scripts/slurm/collect_stats.sh)
+[collect_stats.sh](https://github.com/NREL/resource_monitor/blob/main/scripts/slurm/collect_stats.sh)
 and
-[wait_for_stats.sh](https://github.nrel.gov/dthom/resource_monitor/tree/main/scripts/slurm/wait_for_stats.sh)
+[wait_for_stats.sh](https://github.com/NREL/resource_monitor/blob/main/scripts/slurm/wait_for_stats.sh)
 to your HPC runtime directory.
 
 2. Modify `collect_stats.sh` such that it loads the environment containing `rmon`.
@@ -91,7 +95,7 @@ to your HPC runtime directory.
 3. Modify `collect_stats.sh` with your desired options for `rmon collect`.
 
 4. Modify your `sbatch` script with relevant lines from
-[batch_job.sh](https://github.nrel.gov/dthom/resource_monitor/tree/main/scripts/slurm/batch_job.sh).
+[batch_job.sh](https://github.com/NREL/resource_monitor/blob/main/scripts/slurm/batch_job.sh).
 
 The following will occur when Slurm runs your job:
 
@@ -100,6 +104,13 @@ The following will occur when Slurm runs your job:
 - Run your job.
 - Create the file `shutdown`. That will trigger `collect_stats.sh` to stop.
 - Gracefully shut down ``rmon`` and generate plots.
+
+### Code timings
+Refer to this [page](https://github.com/NREL/resource_monitor/blob/main/src/rmon/timing/README.md)
+for instructions on how to collect timing statistics of targeted functions.
+
+## License
+rmon is released under a BSD 3-Clause [license](https://github.com/NREL/resource_monitor/blob/main/LICENSE).
 
 
 ## Software Record

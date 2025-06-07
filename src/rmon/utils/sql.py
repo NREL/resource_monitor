@@ -1,14 +1,14 @@
 """Utility functions for interacting with a SQLite database"""
 
-import logging
 import sqlite3
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
+from loguru import logger
+
 
 _TYPE_MAP = {int: "INTEGER", float: "REAL", str: "TEXT", bool: "INTEGER"}
-logger = logging.getLogger(__name__)
 
 
 def make_table(
@@ -40,12 +40,13 @@ def make_table(
             entry += " PRIMARY KEY"
         schema.append(entry)
 
-    con = sqlite3.connect(db_file)
-    cur = con.cursor()
-    schema_text = ", ".join(schema)
-    cur.execute(f"CREATE TABLE {table}({schema_text})")
-    con.commit()
-    logger.debug("Created table=%s in db_file=%s", table, db_file)
+    with sqlite3.connect(db_file) as con:
+        cur = con.cursor()
+        schema_text = ", ".join(schema)
+        cur.execute(f"CREATE TABLE {table}({schema_text})")
+        con.commit()
+    con.close()
+    logger.debug("Created table={} in db_file={}", table, db_file)
 
 
 def insert_rows(db_file: Path, table: str, rows: list[tuple]) -> None:
@@ -68,7 +69,8 @@ def insert_rows(db_file: Path, table: str, rows: list[tuple]) -> None:
         query = f"INSERT INTO {table} VALUES({placeholder})"
         cur.executemany(query, rows)
         con.commit()
-        logger.debug("Inserted rows into table=%s in db_file=%s", table, db_file)
+    con.close()
+    logger.debug("Inserted rows into table={} in db_file={}", table, db_file)
 
 
 def read_table(db_file: Path, table: str) -> tuple[list[tuple], list[str]]:
@@ -173,4 +175,6 @@ def list_column_names(db_file: Path, table: str) -> list[str]:
         cur = con.cursor()
         query = f"SELECT * FROM {table} LIMIT 1"
         cur.execute(query).fetchone()
-        return [x[0] for x in cur.description]
+        data = [x[0] for x in cur.description]
+    con.close()
+    return data

@@ -2,13 +2,11 @@
 
 import functools
 import json
-import logging
 import time
 from pathlib import Path
 from typing import Any, Callable, Optional
 
-
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 
 class TimerStats:
@@ -42,14 +40,14 @@ class TimerStats:
     def log_stats(self) -> None:
         """Log a summary of the stats."""
         if self._count == 0:
-            logger.info("No stats have been recorded for %s.", self._name)
+            logger.info("No stats have been recorded for {}.", self._name)
             return
 
         x = self.get_stats()
         text = (
             f"total={x['total']} avg={x['avg']} max={x['max']} min={x['min']} count={x['count']}"
         )
-        logger.info("TimerStats summary: %s: %s", self._name, text)
+        logger.info("TimerStats summary: {}: {}", self._name, text)
 
     def update(self, duration: float) -> None:
         """Update the stats with a new timing."""

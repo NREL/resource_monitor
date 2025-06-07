@@ -7,9 +7,9 @@ Note that you must configure logging and enable messages for the `resource_monit
 If you are not familiar with this, consider creating a logger with this example code:
 
 ```
-from resource_monitor.loggers import setup_logging
+from rmon.loggers import setup_logging
 
-setup_logging(__name__, filename="timing.log")
+setup_logging(filename="timing.log")
 ```
 
 ### Report function durations
@@ -17,7 +17,7 @@ If you decorate your function with `timed_info`, it will log the function execut
 every time it runs.
 
 ```
-from resource_monitor.timing.timer_utils import timed_info
+from rmon import timed_info
 
 @timed_info
 def my_function():
@@ -26,7 +26,7 @@ def my_function():
 
 If you only want to see log messages when a threshold is exceeded, use the code below instead.
 ```
-from resource_monitor.timing.timer_utils import timed_threshold
+from rmon.timing.timer_utils import timed_threshold
 
 @timed_threshold(1.0)
 def my_function():
@@ -35,7 +35,7 @@ def my_function():
 
 ### Report aggregated stats of frequently-called functions or code blocks.
 ```
-from resource_monitor.timing.timer_stats import Timer, TimerStatsCollector, track_timing
+from rmon import Timer, TimerStatsCollector, track_timing
 
 timer_stats_collector = TimerStatsCollector(is_enabled=True)
 

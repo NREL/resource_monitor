@@ -5,17 +5,29 @@ import logging
 import re
 import time
 
-from resource_monitor.timing.timer_stats import TimerStatsCollector, track_timing
-from resource_monitor.timing.timer_utils import timed_info, timed_threshold
+import pytest
+from loguru import logger
 
+from rmon.timing.timer_stats import TimerStatsCollector, track_timing
+from rmon.timing.timer_utils import timed_info, timed_threshold
 
-logger = logging.getLogger(__name__)
 timer_stats_collector = TimerStatsCollector(is_enabled=True)
 
 
-def test_timed_info(caplog):
+@pytest.fixture
+def setup_loguru_for_caplog():
+    logger.remove()
+
+    class PropagateHandler(logging.Handler):
+        def emit(self, record):
+            logging.getLogger(record.name).handle(record)
+
+    logger.add(PropagateHandler(), format="{message}")
+
+
+def test_timed_info(caplog, setup_loguru_for_caplog):
     """Tests the timed_info decorator."""
-    caplog.set_level(logging.INFO)
+    caplog.set_level(logging.DEBUG)
     _timed_function()
     assert len(caplog.records) == 1
     regex = re.compile(r"execution-time=([\d\.]+) ms")
@@ -26,7 +38,7 @@ def test_timed_info(caplog):
     assert duration < 150
 
 
-def test_timed_threshold(caplog):
+def test_timed_threshold(caplog, setup_loguru_for_caplog):
     """Tests the timed_threshold decorator."""
     caplog.set_level(logging.INFO)
     _timed_threshold_fast()
@@ -56,7 +68,7 @@ def _timed_threshold_slow():
     time.sleep(0.2)
 
 
-def test_timer_stats_collector(caplog, tmp_path):
+def test_timer_stats_collector(caplog, tmp_path, setup_loguru_for_caplog):
     """Tests the collector"""
     caplog.set_level(logging.INFO)
     for _ in range(3):

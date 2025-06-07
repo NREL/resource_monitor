@@ -1,6 +1,5 @@
 """CLI utility to monitor resource statistics"""
 
-import logging
 import multiprocessing
 import multiprocessing.connection
 import socket
@@ -10,12 +9,13 @@ import time
 from pathlib import Path
 from typing import Iterable
 
-import click
+import rich_click as click
 import psutil
+from loguru import logger
 
-from resource_monitor.common import DEFAULT_BUFFERED_WRITE_COUNT
-from resource_monitor.resource_monitor import run_monitor_async, run_monitor_sync
-from resource_monitor.models import (
+from rmon.common import DEFAULT_BUFFERED_WRITE_COUNT
+from rmon.resource_monitor import run_monitor_async, run_monitor_sync
+from rmon.models import (
     ComputeNodeResourceStatConfig,
     CompleteProcessesCommand,
     ComputeNodeResourceStatResults,
@@ -25,8 +25,6 @@ from resource_monitor.models import (
     UpdatePidsCommand,
     ResourceType,
 )
-
-logger = logging.getLogger(__name__)
 
 
 @click.command()
@@ -322,7 +320,7 @@ def monitor_process(
     collector_log_file = output / f"{name}_collector.log"
     results_file = output / f"{name}_results.json"
 
-    logger.info("Running %s", process_args)
+    logger.info("Running {}", process_args)
     with subprocess.Popen(process_args) as pipe:
         config = ComputeNodeResourceStatConfig(
             cpu=cpu,
@@ -344,7 +342,7 @@ def monitor_process(
         monitor_proc.start()
         pipe.communicate()
         if pipe.returncode != 0:
-            logger.error("The monitored process failed: %s", pipe.returncode)
+            logger.error("The monitored process failed: {}", pipe.returncode)
 
     parent_monitor_conn.send(ShutDownCommand(pids=pids))
     system_results, process_results = parent_monitor_conn.recv()
@@ -379,20 +377,20 @@ def _cleanup(
         f.write("\n")
         f.write(process_results.model_dump_json())
         f.write("\n")
-    logger.info("Recorded summary stats to %s (line-delimited JSON format)", results_file)
-    logger.info("Use 'jq' to view consolidated data: 'jq -s . %s'", results_file)
+    logger.info("Recorded summary stats to {} (line-delimited JSON format)", results_file)
+    logger.info("Use 'jq' to view consolidated data: 'jq -s . {}'", results_file)
 
     examples = []
     for rtype in ("cpu", "disk", "memory", "network", "process"):
         if getattr(config, rtype):
             examples.append(f'    sqlite3 -table {db_file} "select * from {rtype}"')
     logger.info(
-        "View full results in table form with these example commands: \n%s", "\n".join(examples)
+        "View full results in table form with these example commands: \n{}", "\n".join(examples)
     )
 
     if plots:
         plot_files = (f"    {x}" for x in output.glob(f"{name}*.html"))
-        logger.info("View interactive plots:\n%s", "\n".join(plot_files))
+        logger.info("View interactive plots:\n{}", "\n".join(plot_files))
 
 
 def _run_interactive_mode(
@@ -431,7 +429,7 @@ Enter one of the following letters to change operation:
             case "s":
                 break
             case _:
-                logger.error("command=%s is not a valid command", command)
+                logger.error("command={} is not a valid command", command)
         time.sleep(1)
 
     logger.info("Stop resource monitor")
@@ -460,7 +458,7 @@ def _get_user_resource_types(
             types = {ResourceType(x) for x in user_types.split()}
             break
         except ValueError:
-            logger.error("Failed to parse resource types: %s. Example: %s", user_types, example)
+            logger.error("Failed to parse resource types: {}. Example: {}", user_types, example)
 
     if not types:
         logger.info("Disable system-level resource monitoring.")
@@ -470,7 +468,7 @@ def _get_user_resource_types(
 
     parent_monitor_conn.send(SelectStatsCommand(config=config, pids=pids))
     if types:
-        logger.info("Collecting stats for %s", user_types)
+        logger.info("Collecting stats for {}", user_types)
     return config
 
 
@@ -490,7 +488,7 @@ def _get_user_process_id_input(
                 new_pids = _get_process_names([int(x) for x in user_pids.split()])
                 config.process = True
             except ValueError:
-                logger.error("Failed to parse the process IDs as integers: %s", user_pids)
+                logger.error("Failed to parse the process IDs as integers: {}", user_pids)
                 continue
         else:
             new_pids = {}
@@ -500,7 +498,7 @@ def _get_user_process_id_input(
     parent_monitor_conn.send(UpdatePidsCommand(config=config, pids=new_pids))
     if new_pids:
         names = "\n".join((f"  {x}" for x in new_pids))
-        logger.info("Collecting stats for processes:\n%s", names)
+        logger.info("Collecting stats for processes:\n{}", names)
     return config, new_pids
 
 
@@ -529,7 +527,8 @@ def _get_process_names(pids: Iterable[int]) -> dict[str, int]:
     for pid in pids:
         process_name = _get_process_name(pid)
         if process_name in names:
-            raise ValueError(f"{process_name=} is already stored")
+            msg = f"{process_name=} is already stored"
+            raise ValueError(msg)
         names[process_name] = pid
 
     return names

@@ -1,23 +1,19 @@
 """Entry point for CLI commands"""
 
-import logging
 import sys
 
-import click
+import rich_click as click
 
-import resource_monitor
-from resource_monitor.cli.collect import collect, monitor_process
-from resource_monitor.cli.plot import plot
-from resource_monitor.loggers import setup_logging
-
-
-logger = logging.getLogger(__name__)
+import rmon
+from rmon.cli.collect import collect, monitor_process
+from rmon.cli.plot import plot
+from rmon.loggers import setup_logging
 
 
 def _show_version(*args) -> str:
     version = args[2]
     if version:
-        print(f"Resource Monitor version {resource_monitor.__version__}")
+        print(f"Resource Monitor version {rmon.__version__}")
         sys.exit(0)
     return version
 
@@ -40,8 +36,8 @@ def _show_version(*args) -> str:
 def cli(verbose: bool, version: str) -> None:  # pylint: disable=unused-argument
     """Resource monitor commands"""
     log_file = "rmon.log"
-    level = logging.DEBUG if verbose else logging.INFO
-    setup_logging(__name__, console_level=level, file_level=level, filename=log_file, mode="w")
+    level = "DEBUG" if verbose else "INFO"
+    setup_logging(console_level=level, file_level=level, filename=log_file, mode="w")
 
 
 cli.add_command(collect)

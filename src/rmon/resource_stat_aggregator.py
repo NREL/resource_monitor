@@ -1,6 +1,5 @@
 """Aggregates resource stats"""
 
-import logging
 import socket
 import sys
 from collections import defaultdict
@@ -14,9 +13,6 @@ from .models import (
     ResourceType,
     ComputeNodeResourceStatConfig,
 )
-
-
-logger = logging.getLogger(__name__)
 
 
 class ResourceStatAggregator:
@@ -80,8 +76,8 @@ class ResourceStatAggregator:
             )
             results.append(result)
 
-            for stat_dict in self._process_summaries.values():
-                stat_dict.pop(key)
+            for stats in self._process_summaries.values():
+                stats.pop(key)
             self._process_sample_count.pop(key)
 
         return ComputeNodeProcessResourceStatResults(

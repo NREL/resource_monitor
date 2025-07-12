@@ -1,6 +1,7 @@
 """Entry point for CLI commands"""
 
 import sys
+from pathlib import Path
 
 import rich_click as click
 
@@ -35,7 +36,7 @@ def _show_version(*args) -> str:
 )
 def cli(verbose: bool, version: str) -> None:  # pylint: disable=unused-argument
     """Resource monitor commands"""
-    log_file = "rmon.log"
+    log_file = Path("rmon.log").absolute()
     level = "DEBUG" if verbose else "INFO"
     setup_logging(console_level=level, file_level=level, filename=log_file, mode="w")
 

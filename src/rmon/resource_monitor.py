@@ -61,7 +61,7 @@ def run_monitor_async(
         raise ValueError(msg)
     store = (
         ResourceStatStore(
-            config, db_file, stats, name=name, buffered_write_count=buffered_write_count
+            config, db_file.absolute(), stats, name=name, buffered_write_count=buffered_write_count
         )
         if config.monitor_type == "periodic" and db_file is not None
         else None
@@ -136,8 +136,8 @@ _g_collect_stats = True
 def run_monitor_sync(
     config: ComputeNodeResourceStatConfig,
     pids: dict[str, int],
-    duration: Optional[int],
-    db_file: Optional[Path] = None,
+    duration: int | None,
+    db_file: Path | None = None,
     name: str = socket.gethostname(),
     buffered_write_count: int = DEFAULT_BUFFERED_WRITE_COUNT,
 ) -> tuple[ComputeNodeResourceStatResults, ComputeNodeProcessResourceStatResults]:
@@ -163,7 +163,7 @@ def run_monitor_sync(
         raise ValueError(msg)
     store = (
         ResourceStatStore(
-            config, db_file, stats, name=name, buffered_write_count=buffered_write_count
+            config, db_file.absolute(), stats, name=name, buffered_write_count=buffered_write_count
         )
         if config.monitor_type == "periodic" and db_file is not None
         else None

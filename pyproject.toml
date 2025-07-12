@@ -23,6 +23,7 @@ dependencies = [
     "plotly >= 5.19, < 6",
     "psutil >= 5.9, < 6",
     "pydantic >= 2.1, < 3",
+    "python-daemon",
     "rich_click",
 ]
 
@@ -100,3 +101,7 @@ files = [
   "src",
   "tests",
 ]
+
+[[tool.mypy.overrides]]
+ignore_missing_imports = true
+module = "daemon.*"

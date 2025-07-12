@@ -11,6 +11,7 @@ from typing import Iterable
 
 import rich_click as click
 import psutil
+from daemon import DaemonContext
 from loguru import logger
 
 from rmon.common import DEFAULT_BUFFERED_WRITE_COUNT
@@ -132,6 +133,13 @@ from rmon.models import (
     type=int,
     help="Number of intervals to cache in memory before persisting to database.",
 )
+@click.option(
+    "--daemon/--no-daemon",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help="Run the process as a daemon.",
+)
 def collect(
     process_ids: tuple[int],
     cpu: bool,
@@ -148,6 +156,7 @@ def collect(
     output: Path,
     overwrite: bool,
     buffered_write_count: int,
+    daemon: bool,
 ) -> None:
     """Collect resource utilization stats. Stop collection by setting duration, pressing Ctrl-c,
     or sending SIGTERM to the process ID.
@@ -162,6 +171,14 @@ def collect(
     # Use custom resource types, name, and output directory; run for 10 minutes.
     $ rmon collect --disk --cpu --memory --network --interval=1 --plots --name=stats1 --output=./stats --duration=600
     """
+    if daemon:
+        if sys.platform == "win32":
+            logger.error("--daemon is not supported on Windows.")
+            sys.exit(1)
+        if interactive:
+            logger.error("--daemon is not supported in interactive mode.")
+            sys.exit(1)
+
     output.mkdir(exist_ok=True)
     db_file = output / f"{name}.sqlite"
     _check_db_file(db_file, overwrite)
@@ -191,6 +208,29 @@ def collect(
         system_results, process_results = _run_interactive_mode(
             config, pids, db_file, collector_log_file, results_file, name, buffered_write_count
         )
+        _cleanup(
+            results_file, db_file, system_results, process_results, config, plots, output, name
+        )
+    elif daemon:
+        with DaemonContext():
+            system_results, process_results = run_monitor_sync(
+                config,
+                pids,
+                duration,
+                db_file=db_file,
+                name=name,
+                buffered_write_count=buffered_write_count,
+            )
+            _cleanup(
+                results_file,
+                db_file,
+                system_results,
+                process_results,
+                config,
+                plots,
+                output,
+                name,
+            )
     else:
         system_results, process_results = run_monitor_sync(
             config,
@@ -200,8 +240,9 @@ def collect(
             name=name,
             buffered_write_count=buffered_write_count,
         )
-
-    _cleanup(results_file, db_file, system_results, process_results, config, plots, output, name)
+        _cleanup(
+            results_file, db_file, system_results, process_results, config, plots, output, name
+        )
 
 
 @click.command(context_settings={"ignore_unknown_options": True, "allow_extra_args": True})
